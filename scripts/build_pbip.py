@@ -46,13 +46,18 @@ MEASURES={
     'Bornes moyennes':("DIVIDE(SUM('fact_station_hourly'[sum_docks_available]),[Observations exploitables])",'#,##0.0'),
     'Anomalies':("COUNTROWS('fact_issues')",'#,##0'),
     'Collectes reussies':("CALCULATE(COUNTROWS('fact_runs'),'fact_runs'[status] = \"success\")",'#,##0'),
-    'Collectes echouees':("CALCULATE(COUNTROWS('fact_runs'),'fact_runs'[status] = \"failed\")",'#,##0'),
+    'Collectes echouees':("COALESCE(CALCULATE(COUNTROWS('fact_runs'),'fact_runs'[status] = \"failed\"),0)",'#,##0'),
     'Intervalles > 10 min':("SUM('fact_capture_intervals'[gap_over_10_minutes])",'#,##0'),
+    'Cadence verifiable':('IF([Collectes reussies] < 2, "Non mesurable", FORMAT([Intervalles > 10 min], "#,##0"))','@'),
     'Derniere capture UTC':("MAX('fact_station_latest'[collected_at])",'yyyy-MM-dd HH:mm'),
     'Velos moyens reseau':("DIVIDE(SUM('fact_network_hourly'[sum_bikes_available]), SUM('fact_network_hourly'[usable_samples]))",'#,##0.0'),
     'Bornes moyennes reseau':("DIVIDE(SUM('fact_network_hourly'[sum_docks_available]), SUM('fact_network_hourly'[usable_samples]))",'#,##0.0'),
     'Observations reseau valides':("SUM('fact_network_hourly'[usable_samples])",'#,##0'),
     'Observations reseau invalides':("SUM('fact_network_hourly'[invalid_samples])",'#,##0'),
+    'Observations jour':("SUM('fact_station_daily'[samples])",'#,##0'),
+    'Exploitables jour':("SUM('fact_station_daily'[usable_samples])",'#,##0'),
+    'Sans velo jour':("SUM('fact_station_daily'[empty_samples])",'#,##0'),
+    'Sans borne jour':("SUM('fact_station_daily'[full_samples])",'#,##0'),
 }
 
 def key(s):return hashlib.sha1(s.encode()).hexdigest()[:20]
@@ -95,6 +100,14 @@ def visual(page,title,typ,roles,x,y,w,h):
        'visual':{'visualType':typ,'query':{'queryState':{role:{'projections':[proj(*f) for f in fields]} for role,fields in roles.items()}},
                  'visualContainerObjects':{'title':[{'properties':{'show':{'expr':{'Literal':{'Value':'true'}}},
                   'text':{'expr':{'Literal':{'Value':"'"+title.replace("'","''")+"'"}}}}}]}}}
+    if typ=='cardVisual':
+        # Exact counts and one legible label (instead of 2K / 1K and a duplicate title).
+        v['visual']['objects']={
+            'label':[{'properties':{'show':{'expr':{'Literal':{'Value':'false'}}}},
+                      'selector':{'id':'default'}}],
+            'value':[{'properties':{'labelDisplayUnits':{'expr':{'Literal':{'Value':'1L'}}}},
+                      'selector':{'id':'default'}}],
+        }
     return name,v
 
 def build(csv_dir:Path,output:Path)->dict:
@@ -166,7 +179,7 @@ def build(csv_dir:Path,output:Path)->dict:
         ('Stations référencées','cardVisual',{'Data':[M('Stations observees')]},35,105,270,132),
         ('Vélos moyens par observation','cardVisual',{'Data':[M('Velos moyens')]},323,105,305,132),
         ('Bornes libres moyennes','cardVisual',{'Data':[M('Bornes moyennes')]},646,105,305,132),
-        ('Implantation des stations (coordonnées)','scatterChart',{'Category':[C('dim_station','station_code')],'X':[C('dim_station','longitude')],'Y':[C('dim_station','latitude')]},35,260,705,380),
+        ('Stations — longitude / latitude','scatterChart',{'X':[C('dim_station','longitude')],'Y':[C('dim_station','latitude')],'Tooltips':[C('dim_station','station_name'),C('dim_station','station_code')]},35,260,705,380),
         ('Référentiel géographique','tableEx',{'Values':[C('dim_station','station_name'),C('dim_station','station_code'),C('dim_station','capacity'),C('dim_station','latitude'),C('dim_station','longitude')]},764,260,475,380),
       ]),
       ('03 · Stations',[
@@ -174,13 +187,13 @@ def build(csv_dir:Path,output:Path)->dict:
         ('Vélos disponibles moyens','cardVisual',{'Data':[M('Velos moyens')]},422,110,280,135),
         ('Observations exploitables','cardVisual',{'Data':[M('Observations exploitables')]},723,110,280,135),
         ('Evolution des vélos et bornes par heure','lineChart',{'Category':[C('fact_station_hourly','utc_hour_start')],'Y':[M('Velos moyens'),M('Bornes moyennes')]},35,267,770,375),
-        ('Observations par jour local','tableEx',{'Values':[C('fact_station_daily','local_date'),C('fact_station_daily','samples'),C('fact_station_daily','usable_samples'),C('fact_station_daily','empty_samples'),C('fact_station_daily','full_samples')]},828,267,411,375),
+        ('Résumé par jour local','tableEx',{'Values':[C('dim_date','local_date'),M('Observations jour'),M('Exploitables jour'),M('Sans velo jour'),M('Sans borne jour')]},828,267,411,375),
       ]),
       ('04 · Fiabilité',[
         ('Captures réussies','cardVisual',{'Data':[M('Collectes reussies')]},35,105,270,132),
         ('Captures échouées','cardVisual',{'Data':[M('Collectes echouees')]},323,105,270,132),
         ('Anomalies tracées','cardVisual',{'Data':[M('Anomalies')]},611,105,270,132),
-        ('Intervalles > 10 min','cardVisual',{'Data':[M('Intervalles > 10 min')]},899,105,340,132),
+        ('Cadence (> 10 min, si 2+ captures)','cardVisual',{'Data':[M('Cadence verifiable')]},899,105,340,132),
         ('Catégories d anomalies','barChart',{'Category':[C('fact_issues','issue_code')],'Y':[M('Anomalies')]},35,265,520,370),
         ('Intervalles entre collectes','lineChart',{'Category':[C('fact_capture_intervals','captured_at')],'Y':[C('fact_capture_intervals','gap_minutes')]},580,265,659,370),
       ])
@@ -214,7 +227,7 @@ def build(csv_dir:Path,output:Path)->dict:
 5. Enregistrer sous `.pbip` puis, si nécessaire, publier/exporter un `.pbix` depuis Desktop. Aucun .pbix binaire n'est fourni ici.
 
 ## Limites
-Les agrégats sont calculés sur les **captures observées**, pas sur la durée réelle d'un service, ni sur les trajets. La première capture ne permet aucun diagnostic de tendances. Le graphique de latitude/longitude utilise un nuage de points (pas une carte SIG).
+Les agrégats sont calculés sur les **captures observées**, pas sur la durée réelle d'un service, ni sur les trajets. La première capture ne permet aucun diagnostic de tendances. Le graphique de longitude/latitude présente des paires X/Y sans champ « Valeurs » (ce n'est pas une carte SIG).
 '''
     write(project/'README_OUVERTURE.md',readme)
     result={'pages':len(pages),'visuals':total,'tables':len(TABLES),'measures':len(MEASURES),'captures':manifest['unique_collections'],'project':str(project)}

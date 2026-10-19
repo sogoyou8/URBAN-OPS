@@ -56,3 +56,28 @@ def test_coverage_single_capture_is_unknown(tmp_path):
     assert stats['captures']==1
     assert stats['coverage_within_observed_period'] is None
     assert stats['enough_captures_for_trend'] is False
+
+def test_desktop_visual_corrections(tmp_path):
+    export=synthetic_export(tmp_path)
+    info=build(export,tmp_path/'corrected')
+    project=Path(info['project'])
+    pagefiles=list((project/'UrbanOps.Report/definition/pages').rglob('visual.json'))
+    records={}
+    for f in pagefiles:
+        v=json.loads(f.read_text(encoding='utf-8'))
+        label=v['visual']['visualContainerObjects']['title'][0]['properties']['text']['expr']['Literal']['Value'][1:-1]
+        records[label]=v['visual']
+    scatter=records['Stations — longitude / latitude']['query']['queryState']
+    assert set(scatter)=={'X','Y','Tooltips'}
+    assert scatter['X']['projections'][0]['field']['Column']['Property']=='longitude'
+    assert scatter['Y']['projections'][0]['field']['Column']['Property']=='latitude'
+    daily=records['Résumé par jour local']['query']['queryState']['Values']['projections']
+    assert daily[0]['field']['Column']['Expression']['SourceRef']['Entity']=='dim_date'
+    assert daily[0]['field']['Column']['Property']=='local_date'
+    assert len(daily)==5
+    assert records['Stations observées']['objects']['value'][0]['properties']['labelDisplayUnits']['expr']['Literal']['Value']=='1L'
+    assert records['Stations observées']['objects']['label'][0]['properties']['show']['expr']['Literal']['Value']=='false'
+    assert records['Cadence (> 10 min, si 2+ captures)']['query']['queryState']['Data']['projections'][0]['field']['Measure']['Property']=='Cadence verifiable'
+    measures=(project/'UrbanOps.SemanticModel/definition/tables/_Measures.tmdl').read_text()
+    assert '"Non mesurable"' in measures
+    assert "COALESCE(CALCULATE(COUNTROWS('fact_runs')" in measures
