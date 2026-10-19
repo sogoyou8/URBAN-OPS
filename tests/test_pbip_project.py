@@ -37,6 +37,9 @@ def test_pbip_four_pages_and_query_fields(tmp_path):
                     assert prop in (MEASURES if entity=='_Measures' else TABLES[entity])
     assert found=={'01 · Réseau','02 · Territoires','03 · Stations','04 · Fiabilité'}
     assert len(list((project/'UrbanOps.SemanticModel/definition/tables').glob('*.tmdl')))==10
+    report=json.loads((project/'UrbanOps.Report/definition/report.json').read_text())
+    assert 'themeCollection' in report
+    assert (project/'UrbanOps.Report/StaticResources/RegisteredResources/UrbanOpsTheme.json').is_file()
     assert 'fictif' not in (project/'README_OUVERTURE.md').read_text().lower()
 
 
