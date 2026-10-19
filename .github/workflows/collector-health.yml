@@ -1,0 +1,50 @@
+name: P3 collector freshness audit
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '19 * * * *'
+  push:
+    paths: ['.github/workflows/collector-health.yml']
+permissions:
+  contents: read
+  actions: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Audit collector workflow state and newest archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          state="$(gh api "repos/$GH_REPO/actions/workflows/collect.yml" --jq '.state')"
+          echo "Collector workflow state: $state"
+          echo "### Vélib collection health" >> "$GITHUB_STEP_SUMMARY"
+          echo "Workflow state: **$state**" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$state" != active ]; then
+            echo "::error::Collector GitHub workflow is not active"
+            exit 1
+          fi
+          gh api "repos/$GH_REPO/releases?per_page=30" > /tmp/releases.json
+          python - <<'PY_HEALTH'
+          import json,os,datetime
+          data=json.load(open('/tmp/releases.json'))
+          assets=[a for r in data if r['tag_name'].startswith('velib-data-') for a in r['assets'] if a['name'].startswith('capture-')]
+          if not assets:
+              print('::error::No durable public Vélib captures found')
+              raise SystemExit(1)
+          assets.sort(key=lambda a:a['created_at'])
+          last=assets[-1]
+          saved=datetime.datetime.fromisoformat(last['created_at'].replace('Z','+00:00'))
+          age=(datetime.datetime.now(datetime.timezone.utc)-saved).total_seconds()/60
+          print('Most recent archived capture:',last['name'],'age',round(age,1),'minutes; assets',len(assets))
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as fp:
+              fp.write(f"Latest asset: `{last['name']}`; age: **{age:.1f} min**; total release assets: {len(assets)}.\n")
+          if age>90:
+              print('::warning::Collection is stale: >90 minutes since last capture (best-effort scheduler)')
+              with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as fp:
+                  fp.write('⚠️ **Stale collection: no recent archive in 90 minutes.**\n')
+          PY_HEALTH
