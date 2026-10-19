@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/p4-analytics.yml'
+      - 'scripts/build_pbip.py'
+      - 'scripts/audit_history.py'
+      - 'powerbi/urbanops_theme.json'
 permissions:
   contents: read
 jobs:
