@@ -2,7 +2,6 @@ name: Bootstrap P3 source (one time)
 on:
   push:
     branches: [main]
-    paths: ['bootstrap/p3-source.tar.xz']
 permissions:
   contents: write
 jobs:
@@ -43,7 +42,7 @@ jobs:
       - name: Commit tested source code
         run: |
           rm -rf .p3-extracted bootstrap
-          rm -f .github/workflows/p3-bootstrap.yml
+          rm -f .github/workflows/p3-bootstrap.yml .github/workflows/ci.yml
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
