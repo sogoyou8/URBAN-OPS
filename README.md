@@ -130,3 +130,25 @@ si `URBAN_OPS_TEST_DATABASE_URL` n’est pas défini en local.
 Un workflow GitHub Actions best-effort 5 min archive chaque capture validée dans les **Releases journalières**, sans encombrer l'historique Git. Une base SQLite éphémère valide chaque collecte ; l'historique durable vient des archives horodatées, importables dans PostgreSQL par replay. **Attention : aucune SLA GitHub Actions, des captures peuvent manquer.** Mode d'emploi, limitations et contrôle 24 h : [`docs/P3_COLLECTION.md`](docs/P3_COLLECTION.md).
 
 Vérifications réelles du pilote : [premier archivage](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328054063), [Release du 19 octobre](https://github.com/sogoyou8/URBAN-OPS/releases/tag/velib-data-2026-10-19) et [replay indépendant](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328436934). La cadence programmée reste best-effort et doit être évaluée sur 24 h.
+
+
+## P4 — Analytics / Power BI (nouvelle phase)
+
+Le module `urban_ops.analytics` construit des tables analytiques **à partir des seules
+observations P3 enregistrées**, sans interpolation ni données fabriquées. Il exporte
+`dim_station`, `dim_date`, `fact_station_hourly`, `fact_station_daily`,
+`fact_network_hourly`, `fact_station_latest`, `fact_issues`, `fact_runs` et
+`fact_capture_intervals` en CSV UTF-8 + manifeste JSON SHA-256.
+
+Après avoir rejoué des captures réelles depuis les Releases :
+
+```bash
+python -m scripts.export_p4 --db-url sqlite:///./data/historique.sqlite --output data/p4-export
+```
+
+Le workflow **[P4 real analytics and Power BI export](.github/workflows/p4-analytics.yml)**
+lance un export réel borné et publie un ZIP téléchargeable dans les artifacts GitHub
+Actions (14 jours de rétention). Voir [`powerbi/MODEL.md`](powerbi/MODEL.md)
+(4 pages, relations, DAX, M, thème) et [`docs/P4_VALIDATION.md`](docs/P4_VALIDATION.md).
+Ce kit n'est **pas** un `.pbix` préconstruit : l'assemblage visuel final doit être
+réalisé et vérifié dans Power BI Desktop.

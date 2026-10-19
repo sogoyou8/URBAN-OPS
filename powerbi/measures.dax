@@ -1,0 +1,23 @@
+-- Create these measures in a dedicated table "_Measures" (Power BI Desktop).
+-- IMPORTANT: all rates are based on *captured station observations*;
+-- NOT durations, journeys, unique visitors or service-availability percentages.
+
+Observations = SUM('fact_station_hourly'[samples])
+Observations exploitables = SUM('fact_station_hourly'[usable_samples])
+Observations invalides = SUM('fact_station_hourly'[invalid_samples])
+Taux de qualite observations = DIVIDE([Observations exploitables], [Observations])
+Observations sans velo = SUM('fact_station_hourly'[empty_samples])
+Observations sans borne libre = SUM('fact_station_hourly'[full_samples])
+Part observations sans velo = DIVIDE([Observations sans velo], [Observations exploitables])
+Part observations sans borne libre = DIVIDE([Observations sans borne libre], [Observations exploitables])
+Velos disponibles moyens = DIVIDE(SUM('fact_station_hourly'[sum_bikes_available]), [Observations exploitables])
+Bornes libres moyennes = DIVIDE(SUM('fact_station_hourly'[sum_docks_available]), [Observations exploitables])
+Stations observees = DISTINCTCOUNT('fact_station_hourly'[station_id])
+Nombre anomalies = COUNTROWS('fact_issues')
+Captures reussies = CALCULATE(COUNTROWS('fact_runs'), 'fact_runs'[status] = "success")
+Captures echouees = CALCULATE(COUNTROWS('fact_runs'), 'fact_runs'[status] = "failed")
+Derniere capture du dataset = MAX('fact_station_latest'[collected_at])
+
+-- Optional latest-snapshot cards (use only in latest/current operational view):
+Stations exploitables au dernier etat = CALCULATE(COUNTROWS('fact_station_latest'), 'fact_station_latest'[is_usable] = 1)
+Stations non exploitables au dernier etat = CALCULATE(COUNTROWS('fact_station_latest'), 'fact_station_latest'[is_usable] = 0)

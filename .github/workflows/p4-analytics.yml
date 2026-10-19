@@ -1,0 +1,83 @@
+name: P4 real analytics and Power BI export
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/p4-analytics.yml'
+permissions:
+  contents: read
+jobs:
+  analytics:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install P3/P4 tools
+        run: python -m pip install -e .
+      - name: Download recent, already archived real snapshots
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          mkdir -p data/captures
+          gh api "repos/$GH_REPO/releases?per_page=30" --jq '.[].tag_name' \
+            | grep '^velib-data-' | head -n 3 > /tmp/p4-tags.txt
+          if [ ! -s /tmp/p4-tags.txt ]; then
+            echo 'No real P3 release yet. Do not substitute fixtures.' >&2
+            exit 1
+          fi
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/captures
+          done < /tmp/p4-tags.txt
+          python - <<'PY'
+          from pathlib import Path
+          captures = sorted(Path('data/captures').glob('capture-*.tar.gz'), reverse=True)
+          selected = sorted(captures[:24])
+          if not selected:
+              raise SystemExit('No real archived captures downloaded')
+          Path('/tmp/p4-selected.txt').write_text('\n'.join(map(str,selected))+'\n')
+          print(f'Historical archives downloaded: {len(captures)}; using {len(selected)} most recent for bounded CI analytics')
+          PY
+      - name: Restore P3 history from checksummed archives
+        run: |
+          mapfile -t archives < /tmp/p4-selected.txt
+          python -m scripts.replay_capture --db-url sqlite:///./data/p4-real.sqlite "${archives[@]}" > /tmp/p4-replay.json
+      - name: Build P4 marts from real observations
+        run: |
+          python -m scripts.export_p4 --db-url sqlite:///./data/p4-real.sqlite --output data/p4-export
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          d=json.loads(Path('data/p4-export/manifest.json').read_text())
+          assert d['has_usable_history'], d
+          assert d['unique_collections']>=1, d
+          assert d['tables']['fact_station_hourly']['rows']>0, d
+          assert d['tables']['fact_station_latest']['rows']>1000, d
+          print('REAL P4 MARTS VERIFIED:',json.dumps({
+              'from_utc':d['from_utc'], 'through_utc':d['through_utc'],
+              'captures':d['unique_collections'],
+              'stations':d['unique_stations_observed'],
+              'tables':{k:v['rows'] for k,v in d['tables'].items()}
+          },sort_keys=True))
+          PY
+      - name: Package Power BI import-ready tables and provenance
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          with ZipFile('urban-ops-p4-real-powerbi.zip','w',compression=ZIP_DEFLATED) as z:
+              for f in sorted(Path('data/p4-export').glob('*')):
+                  z.write(f, 'data/'+f.name)
+              for f in sorted(Path('powerbi').glob('*')):
+                  if f.is_file(): z.write(f,'powerbi/'+f.name)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p4-real-powerbi
+          path: urban-ops-p4-real-powerbi.zip
+          retention-days: 14
