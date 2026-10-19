@@ -33,7 +33,7 @@ $env:URBAN_OPS_DATABASE_URL = 'postgresql+psycopg://urbanops:local_dev_only_chan
 
 ## 3. Collecte régulière
 
-Le pipeline exécute un seul instantané par commande. La cadence cible est **5 min** mais n'est **pas activée** par le code ni par GitHub Actions. Un planificateur permanent doit être activé uniquement après vérification des règles d'utilisation, des quotas, de l'hébergement et de la persistance des archives Bronze.
+Le pipeline exécute un seul instantané par commande. La cadence cible est **5 min**. Le pilote GitHub Actions `collect.yml` est configuré pour une collecte best-effort toutes les cinq minutes ; archives persistantes dans les **Releases**, pas dans l'historique Git. Voir `docs/P3_COLLECTION.md` pour les limites, le contrôle de l'exécution et les conditions de migration vers un scheduler garanti.
 
 **Ne pas utiliser GitHub Actions pour capturer des snapshots réguliers dans le dépôt** : cela produirait des données volumineuses et des commits sans fin. Une tâche Windows reste suspendue quand l'ordinateur est éteint ; elle ne remplace pas une collecte 24/7.
 
@@ -57,7 +57,7 @@ Ne pas interpréter `empty_samples` et `full_samples` comme une **durée** ou de
 - [x] Tests SQLite et pipeline local sur fixtures synthétiques
 - [x] Test PostgreSQL exécuté avec service temporaire en GitHub Actions et résultat visible
 - [x] Première collecte HTTPS réelle ponctuelle sur runner GitHub, avec résumé conservé temporairement ([preuve](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39266789480))
-- [ ] Collecte régulière activée sur une machine persistante et observée au moins 24 h
-- [ ] Archives Bronze et sauvegardes de base vérifiées
+- [ ] Collecte GitHub Actions configurée et archivage des snapshots vérifié au moins une fois ; **suivi de 24 h restant à effectuer**
+- [ ] Archives Bronze distantes vérifiées, restauration/replay démontrés sur une capture réelle ; backup hors GitHub à définir
 
 Une P3 **développée** n'est pas encore une P3 **exploitée en continu**.

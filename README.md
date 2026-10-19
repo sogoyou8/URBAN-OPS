@@ -110,8 +110,8 @@ Ne pas lancer deux collecteurs simultanément avec la même base SQLite.
 
 - Inclus : pipeline, DDL SQLite/PostgreSQL, traitements, CLI, fixtures, tests unitaires et
   bout-en-bout **SQLite**, documents de conception.
-- Validé sur GitHub Actions : 11 tests (dont PostgreSQL 16), puis une collecte réelle ponctuelle de 1 517 observations conservées, avec 32 anomalies de qualité et 2 quarantaines.
-- Non mis en service : exécution 24/7, collecte toutes les 5 minutes en production, archivage Parquet, export Power BI.
+- Non prouvé ici : collecte réelle depuis ce conteneur, test d'intégration PostgreSQL,
+  exécution 24/7, cadence de 5 minutes en production, archivage Parquet, export Power BI.
 - Pour finaliser opérationnellement : exécuter sur une machine avec réseau, valider
   PostgreSQL, choisir un ordonnanceur durable, observer les KPI de qualité pendant
   plusieurs jours, fixer une politique de rétention/archivage puis publier.
@@ -124,3 +124,7 @@ Le workflow `.github/workflows/ci.yml` lance les tests SQLite **et** un test
 PostgreSQL 16 sur service éphémère ; aucun flux réel, déploiement ou ordonnanceur
 n’est lancé par ce workflow. Le test PostgreSQL est volontairement ignoré
 si `URBAN_OPS_TEST_DATABASE_URL` n’est pas défini en local.
+
+## P3 — Pilotage et historique GitHub (sans nouveau service payant)
+
+Un workflow GitHub Actions best-effort 5 min archive chaque capture validée dans les **Releases journalières**, sans encombrer l'historique Git. Une base SQLite éphémère valide chaque collecte ; l'historique durable vient des archives horodatées, importables dans PostgreSQL par replay. **Attention : aucune SLA GitHub Actions, des captures peuvent manquer.** Mode d'emploi, limitations et contrôle 24 h : [`docs/P3_COLLECTION.md`](docs/P3_COLLECTION.md).

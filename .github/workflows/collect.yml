@@ -1,0 +1,76 @@
+name: P3 best-effort Velib collector
+
+on:
+  schedule:
+    # Stagger away from the busiest top-of-hour minute; UTC, every five minutes.
+    - cron: '2-57/5 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/collect.yml']
+
+permissions:
+  contents: write   # Required only for daily GitHub Release archive assets.
+
+concurrency:
+  group: urbanops-public-collector
+  cancel-in-progress: false
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      PYTHONUNBUFFERED: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install collector
+        run: python -m pip install -e .
+      - name: Collect ONE snapshot and run Bronze/Silver/Gold
+        run: |
+          python -m urban_ops init > /dev/null
+          python -m urban_ops collect > collection_result.json
+          python -m urban_ops report > collection_report.json
+          python -m scripts.archive_capture --result collection_result.json > archive_result.json
+      - name: Publish immutable archive to UTC daily data release
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="$(python -c 'import json;print(json.load(open("archive_result.json"))["release_tag"])')"
+          asset="$(python -c 'import json;print(json.load(open("archive_result.json"))["asset"])')"
+          name="$(basename "$asset")"
+          if ! gh release view "$tag" -R "$GH_REPO" >/dev/null 2>&1; then
+            gh release create "$tag" -R "$GH_REPO" --target "$GITHUB_SHA" \
+              --title "Public Vélib observations (UTC ${tag#velib-data-})" \
+              --notes "Research-grade snapshots of public Vélib' Métropole data under ODbL. Not affiliated with the operator. GitHub schedule is best-effort and may skip/delay runs. For source and methodology see repository README." \
+              --latest=false
+          fi
+          if gh release view "$tag" -R "$GH_REPO" --json assets --jq '.assets[].name' | grep -Fqx "$name"; then
+            echo "Already archived: $name"
+          else
+            gh release upload "$tag" "$asset" -R "$GH_REPO"
+          fi
+          gh release view "$tag" -R "$GH_REPO" --json assets --jq '.assets[].name' | grep -Fqx "$name"
+          python - <<'PY'
+          import json,os
+          with open('archive_result.json') as fp:
+              a=json.load(fp)
+          with open(os.environ['GITHUB_STEP_SUMMARY'],'a') as fp:
+              fp.write(f"✅ Public data archived: {a['status_samples']} observations; {a['quality_issues']} quality issues; {a['size_bytes']} bytes.\n\nRelease: `{a['release_tag']}` / `{a['asset_name']}`\n")
+          PY
+      - name: Save diagnostic summary on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: collector-failure-${{ github.run_id }}
+          path: |
+            collection_result.json
+            collection_report.json
+            archive_result.json
+          if-no-files-found: ignore
+          retention-days: 7
