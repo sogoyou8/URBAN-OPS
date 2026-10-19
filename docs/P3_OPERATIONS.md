@@ -57,7 +57,9 @@ Ne pas interpréter `empty_samples` et `full_samples` comme une **durée** ou de
 - [x] Tests SQLite et pipeline local sur fixtures synthétiques
 - [x] Test PostgreSQL exécuté avec service temporaire en GitHub Actions et résultat visible
 - [x] Première collecte HTTPS réelle ponctuelle sur runner GitHub, avec résumé conservé temporairement ([preuve](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39266789480))
-- [ ] Collecte GitHub Actions configurée et archivage des snapshots vérifié au moins une fois ; **suivi de 24 h restant à effectuer**
-- [ ] Archives Bronze distantes vérifiées, restauration/replay démontrés sur une capture réelle ; backup hors GitHub à définir
+- [x] Collecte GitHub Actions configurée ; première sauvegarde distante réussie ([preuve](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328054063))
+- [ ] Contrôle de régularité après **24 h** de cadence programmée : compter les exécutions, les captures, les retards et les manques
+- [x] Archive Bronze réelle présente dans une GitHub Release et restauration SQL vérifiée ([preuve](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328436934))
+- [ ] Définir une sauvegarde indépendante de GitHub et une politique de rétention pour un usage durable au-delà du pilote
 
 Une P3 **développée** n'est pas encore une P3 **exploitée en continu**.

@@ -48,3 +48,13 @@ Une seule exécution réussie ne prouve **pas** la collecte régulière. Il faud
 - GitHub scheduled workflow : https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows
 - GitHub Release assets : https://docs.github.com/en/repositories/releasing-projects-on-github/about-releases
 - Vélib' open data : https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole
+
+## Première exécution validée (19 octobre 2026)
+
+- [Capture ponctuelle programmée au premier push](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328054063) : job **succès**, asset distant de **96 590 octets**.
+- [Archive Vélib' réelle](https://github.com/sogoyou8/URBAN-OPS/releases/tag/velib-data-2026-10-19) : `capture-20261019T213059Z-ba6ec251.tar.gz`.
+- [Test de reconstruction indépendant](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328436934) : restauration SQLite/Gold réussie, **1 517 observations**, **1 481 utilisables**, **34 anomalies**, **2 quarantaines**.
+- [Tests automatisés avec PostgreSQL](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328053971) : succès.
+- **À vérifier plus tard :** plusieurs exécutions *schedule* espacées dans le temps et la régularité sur 24 h. Aucun historique multi-jours n'est encore démontré.
+
+Sur la base de la taille **d'une seule capture** (96 590 octets) et **si** 288 snapshots sont réalisés chaque jour, l'archive grossirait d'environ 0,83 Go en 30 jours. C'est une approximation de capacité, pas une mesure d'utilisation réelle ni un engagement de gratuité permanent.

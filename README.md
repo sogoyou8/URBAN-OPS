@@ -128,3 +128,5 @@ si `URBAN_OPS_TEST_DATABASE_URL` n’est pas défini en local.
 ## P3 — Pilotage et historique GitHub (sans nouveau service payant)
 
 Un workflow GitHub Actions best-effort 5 min archive chaque capture validée dans les **Releases journalières**, sans encombrer l'historique Git. Une base SQLite éphémère valide chaque collecte ; l'historique durable vient des archives horodatées, importables dans PostgreSQL par replay. **Attention : aucune SLA GitHub Actions, des captures peuvent manquer.** Mode d'emploi, limitations et contrôle 24 h : [`docs/P3_COLLECTION.md`](docs/P3_COLLECTION.md).
+
+Vérifications réelles du pilote : [premier archivage](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328054063), [Release du 19 octobre](https://github.com/sogoyou8/URBAN-OPS/releases/tag/velib-data-2026-10-19) et [replay indépendant](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39328436934). La cadence programmée reste best-effort et doit être évaluée sur 24 h.
