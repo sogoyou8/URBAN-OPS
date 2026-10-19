@@ -76,6 +76,24 @@ jobs:
               for f in sorted(Path('powerbi').glob('*')):
                   if f.is_file(): z.write(f,'powerbi/'+f.name)
           PY
+      - name: Build editable four-page PBIP from the real exported CSV
+        run: |
+          python -m scripts.build_pbip --csv-dir data/p4-export --output data/p4-pbip
+          python -m scripts.audit_history --csv-dir data/p4-export > data/p4-pbip/UrbanOps/COLLECTOR_COVERAGE.json
+          python - <<'PY_PBIP'
+          from pathlib import Path
+          from zipfile import ZipFile,ZIP_DEFLATED
+          root=Path('data/p4-pbip')
+          with ZipFile('urban-ops-p4-4pages-PBIP.zip','w',compression=ZIP_DEFLATED) as dest:
+              for file in sorted(root.rglob('*')):
+                  if file.is_file():dest.write(file,file.relative_to(root))
+          print('PBIP generated:',sum(p.is_file() for p in root.rglob('*')),'files')
+          PY_PBIP
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p4-real-4pages-PBIP
+          path: urban-ops-p4-4pages-PBIP.zip
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: urban-ops-p4-real-powerbi
