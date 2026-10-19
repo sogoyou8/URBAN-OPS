@@ -3,14 +3,5 @@
   "dataColors": ["#79B9EE", "#C9D4E0", "#E7B979", "#92B8A5", "#9C95B8", "#E48B89"],
   "background": "#12151B",
   "foreground": "#EEF2F5",
-  "tableAccent": "#79B9EE",
-  "visualStyles": {
-    "*": {
-      "*": {
-        "background": [{"show": false}],
-        "border": [{"show": false}],
-        "visualHeader": [{"show": false}]
-      }
-    }
-  }
+  "tableAccent": "#79B9EE"
 }

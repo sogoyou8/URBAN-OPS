@@ -1,6 +1,6 @@
 # URBAN OPS P4 — Kit Power BI Desktop
 
-Ce kit fournit **données analytiques réelles exportées** et mesures; aucun fichier `.pbix` fictif n'est annoncé. Il faut construire et sauvegarder le rapport dans Power BI Desktop.
+Ce kit fournit **un modèle d’import des données analytiques** et des mesures; les jeux de données ne sont authentifiés comme réels que lorsqu’ils sont reconstruits à partir des archives P3 officielles contrôlées; aucun fichier `.pbix` fictif n'est annoncé. Il faut construire et sauvegarder le rapport dans Power BI Desktop.
 
 ## 1. Données à charger
 
@@ -14,6 +14,7 @@ Exécuter `python -m scripts.export_p4 --db-url sqlite:///./data/replayed.sqlite
 | `fact_station_daily` | station x jour local | bilan journalier, éviter de l'additionner aux données horaires |
 | `fact_network_hourly` | heure UTC | tendances agrégées sur observations qualifiées |
 | `fact_station_latest` | station x dernier snapshot capturé | carte du dernier état **du jeu exporté**, pas forcément du direct |
+| `fact_capture_intervals` | collecte réussie | délais entre captures, détection de trous (> 10 minutes) |
 | `fact_issues` | anomalie signalée | contrôles qualité et causes |
 | `fact_runs` | tentative de collecte | supervision et fiabilité |
 | `manifest.json` | livraison | bornes temporelles, nombre de captures, SHA-256, limites |

@@ -22,3 +22,13 @@ _À remplir uniquement à partir d'un run GitHub Actions terminé et vérifié. 
 - `powerbi/MODEL.md` décrit les quatre pages et les relations; `powerbi/measures.dax` fournit les mesures, `powerbi/fxLoadUrbanCSV.pq` la fonction d'import et `powerbi/urbanops_theme.json` le thème.
 - L'artifact CSV réel téléchargé depuis Actions expire après 14 jours; les sources Bronze historiques persistent dans les Releases P3.
 - Le périmètre du run pilote télécharge jusqu'aux 3 dernières releases de données et sélectionne les 24 captures les plus récentes, afin de limiter le temps et les ressources CI. Cela ne prouve **pas** des tendances multi-semaines.
+
+## Exécution vérifiée sur des archives réelles (19 octobre 2026)
+
+- [P4 — export des données réelles](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39332540165) : **succès**.
+- [CI P3/P4 et PostgreSQL](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39332540144) : **succès**.
+- Archives téléchargées : **1** (et non 24). Station disponibles dans l'archive : **1 517**. Anomalies enregistrées : **34**.
+- Neuf fichiers de tables CSV, un manifeste SHA-256 et les sources Power BI ont été livrés en artifact temporaire GitHub Actions.
+- Horodatage minimum = maximum : **2026-10-19T21:30:59Z**. Aucun profil horaire/journalier intertemporel, aucune durée de rupture et aucune tendance ne peuvent encore être établis avec cette seule capture.
+- Le planificateur P3 n'a pas montré d'exécutions répétées au moment du contrôle. Avant de présenter un historique dans un entretien, contrôler de nouveau ses déclenchements et la croissance des Releases.
+- Le fichier final `.pbix` et l'assemblage des quatre pages sont **encore à produire dans Power BI Desktop** (impossible de les ouvrir/valider sur GitHub Actions).

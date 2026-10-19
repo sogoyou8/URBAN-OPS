@@ -3,7 +3,7 @@
 // Edit the folder path ONCE here, then invoke it for each exported table.
 (tableName as text) as table =>
 let
-    ExportFolder = "C:\\UrbanOps\\data\\p4-export\\",
+    ExportFolder = "C:\UrbanOps\data\p4-export\",
     CsvSource = Csv.Document(
         File.Contents(ExportFolder & tableName & ".csv"),
         [Delimiter=",", Encoding=65001, QuoteStyle=QuoteStyle.Csv]

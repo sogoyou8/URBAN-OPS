@@ -272,15 +272,20 @@ def build_export(database_url: str, output_dir: Path, *, start: date | None = No
         file_manifest = {}
         for name in [*TABLES, *( ["fact_observations"] if include_samples else [])]:
             p = output_dir / f"{name}.csv"
+            digest = hashlib.sha256()
             with p.open("rb") as file:
-                checksum = hashlib.sha256(file.read()).hexdigest()
+                for block in iter(lambda: file.read(1024 * 1024), b""):
+                    digest.update(block)
+            checksum = digest.hexdigest()
             with p.open("r", encoding="utf-8-sig", newline="") as file:
                 count = sum(1 for _ in file)-1
             file_manifest[name] = {"rows": count, "sha256": checksum, "file": p.name}
         meta = {
             "project": "Urban Ops Mobility Intelligence",
             "phase": "P4 — Analytics / Power BI",
-            "data_origin": "P3 archived Vélib' feeds replayed to SQL; no fabricated observations",
+            "data_origin": "Derived strictly from input P3 SQL; verify provenance of supplied archives or database",
+            "origin_verified_by_p4": False,
+            "source_note": "P4 never generates synthetic station observations; fixtures used for tests are NOT real Vélib data",
             "time_zone": "Europe/Paris (hourly bucket stored as distinct UTC hour + offset)",
             "from_utc": iso(first_capture) if first_capture else None,
             "through_utc": iso(last_capture) if last_capture else None,
