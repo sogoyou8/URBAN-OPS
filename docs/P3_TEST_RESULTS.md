@@ -34,3 +34,11 @@ les accès Internet et un test de bout en bout PostgreSQL sur des données réel
 - **11 tests réussis**, y compris le test d'intégration PostgreSQL / Bronze → Silver → Gold.
 - L'archive a été vérifiée par SHA-256 avant extraction et publication du code dans `main`.
 - Tests réalisés sur fixtures synthétiques ; **aucune collecte HTTP réelle ni collecte permanente** n'a été mise en service.
+
+## Validation API Vélib' sur runner GitHub (19 octobre 2026)
+
+- [Run P3 live](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39266789480) : **succès**, un seul lancement.
+- Deux GET HTTPS et deux archives Bronze JSON.gz, suivis des traitements Silver/Gold SQLite.
+- 1 517 stations intégrées, 1 517 échantillons de statut, 1 483 utilisables, 32 problèmes qualité, 2 éléments en quarantaine, 1 517 lignes Gold.
+- Résumé de validation conservé dans un artefact GitHub Actions pendant 7 jours ; **aucun historique durable ni planificateur 5 minutes n'est activé**.
+- Le nombre de stations intégrées est susceptible de varier ; ne pas confondre cette photographie avec un historique de réseau.

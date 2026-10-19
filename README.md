@@ -1,6 +1,6 @@
 # URBAN OPS — P3 Data Engineering
 
-**Statut : implémentation locale + tests sur fixtures synthétiques.** Aucun collecteur permanent
+**Statut : pipeline publié et validé en GitHub Actions (SQLite, PostgreSQL 16 et une collecte HTTPS réelle ponctuelle).** Aucun collecteur permanent
 ni serveur distant n'a été mis en route. Ce dépôt de travail est indépendant de FPT,
 Commerce 360 et France Électricité 2024.
 
@@ -110,8 +110,8 @@ Ne pas lancer deux collecteurs simultanément avec la même base SQLite.
 
 - Inclus : pipeline, DDL SQLite/PostgreSQL, traitements, CLI, fixtures, tests unitaires et
   bout-en-bout **SQLite**, documents de conception.
-- Non prouvé ici : collecte réelle depuis ce conteneur, test d'intégration PostgreSQL,
-  exécution 24/7, cadence de 5 minutes en production, archivage Parquet, export Power BI.
+- Validé sur GitHub Actions : 11 tests (dont PostgreSQL 16), puis une collecte réelle ponctuelle de 1 517 observations conservées, avec 32 anomalies de qualité et 2 quarantaines.
+- Non mis en service : exécution 24/7, collecte toutes les 5 minutes en production, archivage Parquet, export Power BI.
 - Pour finaliser opérationnellement : exécuter sur une machine avec réseau, valider
   PostgreSQL, choisir un ordonnanceur durable, observer les KPI de qualité pendant
   plusieurs jours, fixer une politique de rétention/archivage puis publier.

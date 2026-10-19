@@ -56,7 +56,7 @@ Ne pas interpréter `empty_samples` et `full_samples` comme une **durée** ou de
 
 - [x] Tests SQLite et pipeline local sur fixtures synthétiques
 - [x] Test PostgreSQL exécuté avec service temporaire en GitHub Actions et résultat visible
-- [ ] Première collecte HTTPS réelle sur une machine autorisée, avec un rapport archivé
+- [x] Première collecte HTTPS réelle ponctuelle sur runner GitHub, avec résumé conservé temporairement ([preuve](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39266789480))
 - [ ] Collecte régulière activée sur une machine persistante et observée au moins 24 h
 - [ ] Archives Bronze et sauvegardes de base vérifiées
 
