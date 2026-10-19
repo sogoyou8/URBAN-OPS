@@ -1,0 +1,43 @@
+name: P3 live public API smoke test
+on:
+  push:
+    paths: ['.github/workflows/live-smoke.yml']
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  live-collect-once:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pipeline
+        run: python -m pip install -e .
+      - name: Execute one real public API collection
+        run: |
+          python -m urban_ops init
+          python -m urban_ops collect | tee live_collect_result.json
+          python -m urban_ops report | tee live_report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          result=json.loads(Path("live_collect_result.json").read_text())
+          report=json.loads(Path("live_report.json").read_text())
+          assert result["status"]=="success", result
+          assert result["status_samples"]>0, result
+          assert report["runs_succeeded"]==1 and report["status_samples"]>0, report
+          assert len(list(Path("data/bronze").rglob("*.json.gz")))==2
+          print("VALIDATED: real HTTP -> Bronze/Silver/Gold, one-shot only")
+          PY
+      - name: Preserve non-sensitive validation summaries
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: p3-live-validation-summary
+          path: |
+            live_collect_result.json
+            live_report.json
+          if-no-files-found: ignore
+          retention-days: 7
