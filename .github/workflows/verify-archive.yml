@@ -1,0 +1,41 @@
+name: P3 archived capture restore verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['.github/workflows/verify-archive.yml']
+permissions:
+  contents: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install -e .
+      - name: Download latest UTC day's release capture, restore, check data counts
+        run: |
+          set -euo pipefail
+          tag="velib-data-$(date -u +%Y-%m-%d)"
+          mkdir -p data/restoration
+          asset="$(gh release view "$tag" -R "$GH_REPO" --json assets --jq '[.assets[].name] | sort | last')"
+          test -n "$asset"
+          test "$asset" != "null"
+          gh release download "$tag" -R "$GH_REPO" --pattern "$asset" --dir data/restoration
+          python -m scripts.replay_capture --db-url sqlite:///./data/restored.sqlite "data/restoration/$asset"
+          python -m urban_ops --database-url sqlite:///./data/restored.sqlite report | tee data/restore-report.json
+          python - <<'PY'
+          import json
+          d=json.load(open('data/restore-report.json'))
+          assert d['runs_succeeded']==1, d
+          assert d['status_samples']>=1000, d
+          assert d['gold_rows']>=1000, d
+          print('VERIFIED LIVE RELEASE REPLAY: original capture timestamp, SHA-256, SQL Silver/Gold')
+          PY
