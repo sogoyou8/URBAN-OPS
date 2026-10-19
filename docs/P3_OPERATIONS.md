@@ -55,7 +55,7 @@ Ne pas interpréter `empty_samples` et `full_samples` comme une **durée** ou de
 ## 5. Conditions de recette P3 opérationnelle
 
 - [x] Tests SQLite et pipeline local sur fixtures synthétiques
-- [ ] Tests PostgreSQL exécutés en CI avec service temporaire et résultat visible
+- [x] Test PostgreSQL exécuté avec service temporaire en GitHub Actions et résultat visible
 - [ ] Première collecte HTTPS réelle sur une machine autorisée, avec un rapport archivé
 - [ ] Collecte régulière activée sur une machine persistante et observée au moins 24 h
 - [ ] Archives Bronze et sauvegardes de base vérifiées
