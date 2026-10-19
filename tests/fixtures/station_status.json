@@ -1,0 +1,18 @@
+{
+  "lastUpdatedOther": 1792408735,
+  "ttl": 3600,
+  "data": {"stations": [
+    {"station_id": 101, "stationCode": "00001", "num_bikes_available": 0,
+     "numBikesAvailable": 0, "num_docks_available": 10, "numDocksAvailable": 10,
+     "num_bikes_available_types": [{"mechanical": 0}, {"ebike": 0}],
+     "is_installed": 1, "is_renting": 1, "is_returning": 1, "last_reported": 1792408675},
+    {"station_id": 202, "stationCode": "00002", "num_bikes_available": 11,
+     "numBikesAvailable": 11, "num_docks_available": 5, "numDocksAvailable": 5,
+     "num_bikes_available_types": [{"mechanical": 8}, {"ebike": 3}],
+     "is_installed": 1, "is_renting": 1, "is_returning": 1, "last_reported": 1792408600},
+    {"station_id": 303, "stationCode": "00003", "num_bikes_available": 2,
+     "numBikesAvailable": 2, "num_docks_available": 8, "numDocksAvailable": 8,
+     "num_bikes_available_types": [{"mechanical": 1}, {"ebike": 1}],
+     "is_installed": 1, "is_renting": 1, "is_returning": 1, "last_reported": 1792400000}
+  ]}
+}

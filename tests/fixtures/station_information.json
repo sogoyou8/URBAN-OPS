@@ -1,0 +1,9 @@
+{
+  "lastUpdatedOther": 1792408735,
+  "ttl": 3600,
+  "data": {"stations": [
+    {"station_id": 101, "stationCode": "00001", "name": "Fixture Alpha", "lat": 48.85, "lon": 2.35, "capacity": 10},
+    {"station_id": 202, "stationCode": "00002", "name": "Fixture Beta", "lat": 48.86, "lon": 2.36, "capacity": 10},
+    {"station_id": 303, "stationCode": "00003", "name": "Fixture Gamma", "lat": 48.87, "lon": 2.37, "capacity": 10}
+  ]}
+}

@@ -1,0 +1,7 @@
+# EXAMPLE ONLY — NOT INSTALLED. Linux cron; replace paths, venv and environment.
+# A bounded single-instance cron schedule to run every five minutes:
+# */5 * * * * cd /ABSOLUTE/PATH/urban-ops-p3 && /usr/bin/flock -n /tmp/urban-ops-collector.lock /ABSOLUTE/PATH/urban-ops-p3/.venv/bin/python -m urban_ops collect >> /ABSOLUTE/PATH/urban-ops-p3/data/collector.log 2>&1
+#
+# Do not activate before: (1) verifying API request policy, (2) selecting a permanent host,
+# (3) PostgreSQL and data backups, (4) logging/alerts on repeated failures.
+# Cron will NOT run on a laptop that is asleep/offline.
