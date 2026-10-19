@@ -1,0 +1,51 @@
+name: Bootstrap P3 source (one time)
+on:
+  push:
+    branches: [main]
+    paths: ['bootstrap/p3-source.tar.xz']
+permissions:
+  contents: write
+jobs:
+  unpack-and-test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: urbanops
+          POSTGRES_PASSWORD: urbanops_test_only
+          POSTGRES_DB: urbanops_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U urbanops -d urbanops_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      URBAN_OPS_TEST_DATABASE_URL: postgresql+psycopg://urbanops:urbanops_test_only@127.0.0.1:5432/urbanops_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify archive and unpack source
+        run: |
+          echo "1598b12e034a4a4420f5c468456b924218897d334dbfc54599a552eaacaddce1  bootstrap/p3-source.tar.xz" | sha256sum -c -
+          mkdir -p .p3-extracted
+          tar -xJf bootstrap/p3-source.tar.xz -C .p3-extracted
+          cp -a .p3-extracted/urban-ops-p3/. .
+      - name: Validate SQLite and PostgreSQL pipelines
+        run: |
+          python -m pip install -e '.[postgres,test]'
+          python -m compileall -q src tests
+          python -m pytest -q
+      - name: Commit tested source code
+        run: |
+          rm -rf .p3-extracted bootstrap
+          rm -f .github/workflows/p3-bootstrap.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet || git commit -m "feat: publish validated P3 Bronze Silver Gold pipeline"
+          git push origin HEAD:main
