@@ -56,3 +56,28 @@ def test_conflicting_same_timestamp_rejected(tmp_path):
     with pytest.raises(ReplayValidationError, match="conflicting"):
         reconstruct_replays([a, b], tmp_path / "out")
     assert not (tmp_path / "out" / "pulse_network_5m.csv").exists()
+
+
+def test_removed_station_not_forward_filled(tmp_path):
+    """Pulse sends (m,e,d,o)=(0,0,0,0) as a station removal tombstone."""
+    a = response(BASE)
+    a["to"] = BASE + 300
+    a["frames"] = [{
+        "v": 1, "observedAt": BASE + 300,
+        "previousSourceUpdatedAt": BASE, "sourceUpdatedAt": BASE + 300,
+        "changes": [{
+            "c": 9003, "m": 0, "e": 0, "d": 0, "o": 0,
+            "dm": 0, "de": 0, "dd": 0,
+        }],
+    }]
+    b = response(BASE + 300, bikes=3, changes=[frame(BASE + 600, BASE + 300, 4)])
+    b["baseline"]["stations"] = [s for s in b["baseline"]["stations"] if s["c"] != 9003]
+    first = save(tmp_path / "a.json", a)
+    second = save(tmp_path / "b.json", b)
+    result = reconstruct_replays([first, second], tmp_path / "out")
+    assert result["station_removal_events"] == 1
+    assert result["network_samples_exported"] == 3
+    assert result["station_rows_exported"] == 4  # 2 stations, then 1, then 1
+    with (tmp_path / "out" / "pulse_network_5m.csv").open(newline="", encoding="utf-8") as file:
+        rows = list(csv.DictReader(file))
+    assert [r["station_code"] for r in rows].count("9003") == 1
