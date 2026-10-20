@@ -62,6 +62,7 @@ try{
   class MockMap{
    constructor({container}){
     this.el=document.getElementById(container);this.events={};this.zoom=11;
+    this.fitCalls=0;this.center=[2.348,48.856];window.__mockMap=this;
     this.el.addEventListener('click',event=>{
      const r=this.el.getBoundingClientRect();
      for(const fn of this.events.click||[])fn({point:{x:event.clientX-r.left,y:event.clientY-r.top}});
@@ -70,12 +71,17 @@ try{
    }
    on(name,fn){(this.events[name]??=[]).push(fn);}
    addControl(){}
-   project([lon,lat]){return {x:(lon-2)*700,y:(48.97-lat)*1500};}
+   project([lon,lat]){const base={x:(lon-2)*700,y:(48.97-lat)*1500};
+    if(this.zoom<14)return base;
+    const scale=2**(this.zoom-13);
+    return {x:350+(base.x-230)*scale,y:180+(base.y-170)*scale};
+   }
+   emitMove(){for(const fn of this.events.move||[])fn();}
    getZoom(){return this.zoom;}
    getCanvas(){return this.el;}
-   flyTo(opts){this.zoom=opts.zoom;this.center=opts.center;}
-   easeTo(opts){this.zoom=opts.zoom;this.center=opts.center;}
-   fitBounds(){}
+   flyTo(opts){this.zoom=opts.zoom;this.center=opts.center;this.emitMove();}
+   easeTo(opts){this.zoom=opts.zoom;this.center=opts.center;this.emitMove();}
+   fitBounds(bounds,opts){this.fitCalls++;this.zoom=Math.min(11,opts.maxZoom||11);this.center=[(bounds[0][0]+bounds[1][0])/2,(bounds[0][1]+bounds[1][1])/2];this.emitMove();}
    resize(){}
    remove(){}
   }
@@ -83,7 +89,7 @@ try{
  });
  await page.goto(url,{waitUntil:'load',timeout:20000});
  await page.waitForFunction(()=>document.querySelector('#station-overlay')?.width>0,{timeout:10000});
- await page.waitForFunction(()=>document.querySelector('#map-count')?.textContent.includes('REPÈRES'),{timeout:10000});
+ await page.waitForFunction(()=>document.querySelector('#map-count')?.dataset.markers !== undefined,{timeout:10000});
  const initial=await page.evaluate(()=>{
   const map=document.getElementById('map'),canvas=document.getElementById('station-overlay');
   const ctx=canvas.getContext('2d');
@@ -92,27 +98,52 @@ try{
           pageHeight:document.documentElement.scrollHeight,viewport:window.innerHeight,
           mapWidth:map.getBoundingClientRect().width};
  });
- assert.match(initial.markers,/4 STATIONS/);
+ assert.match(initial.markers,/4 filtrées/);
+ assert.equal(await page.$eval('#map-count',el=>el.dataset.filtered),'4');
+ assert.equal(await page.$eval('#map-count',el=>el.dataset.visible),'4');
  assert.ok(initial.pixel>0,'Geographic marker MUST render even when style layers never load');
  assert.ok(initial.pageHeight<=initial.viewport+3,'Desktop page should not vertically scroll');
+ // Zoomed viewport cannot continue to show the network total as if all were visible.
+ await page.evaluate(()=>{window.__mockMap.zoom=16;window.__mockMap.emitMove()});
+ const zoomed=await page.$eval('#map-count',e=>({total:+e.dataset.filtered,visible:+e.dataset.visible}));
+ assert.equal(zoomed.total,4);
+ assert.ok(zoomed.visible<zoomed.total,'Off-screen stations must not be counted as visible');
  await page.click('[data-view="territoires"]');
+ assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),11);
+ assert.equal(await page.$eval('#map-count',e=>e.dataset.visible),'4');
+ assert.ok(await page.evaluate(()=>window.__mockMap.fitCalls>=1));
+ // Clicking the active section must preserve exploratory zoom.
+ await page.evaluate(()=>{window.__mockMap.zoom=15;window.__mockMap.emitMove()});
+ await page.click('[data-view="territoires"]');
+ assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),15);
  assert.match(await page.$eval('#headline-title',e=>e.textContent),/territoire/i);
  await page.click('[data-sector="NE"]');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/STATIONS/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/filtrées/);
  await page.click('[data-view="fiabilite"]');
+ assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),11);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/observations reçues, non exploitables/);
  await page.click('#inspect-unqualified');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 STATIONS/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
+ assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
+ await page.click('[data-station="3"]');
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/QUALITÉ DE L’OBSERVATION/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Observation rejetée/);
+ await page.click('[data-back]');
  assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
  await page.click('[data-view="fiabilite"]');
  await page.click('[data-view="previsions"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/PRÉVISION NON DISPONIBLE/);
+ // A new section always opens its inspector at the top (even from a scrolled one).
+ await page.evaluate(()=>{document.querySelector('#inspector-content').scrollTop=180});
+ await page.click('[data-view="reseau"]');
+ assert.equal(await page.$eval('#inspector-content',e=>e.scrollTop),0);
+ await page.click('[data-view="previsions"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/27 \/ 900/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Non vérifiées ici/);
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 STATIONS/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
  await page.click('[data-filter="all"]');
  await page.type('#station-search','Bercy');
  assert.match(await page.$eval('#station-results',e=>e.textContent),/1 stations/);

@@ -96,7 +96,7 @@ export function layoutMapMarkers(stations, project, width, height, zoom=11, sele
     if (!Number.isFinite(station.lon)||!Number.isFinite(station.lat)) continue;
     const p=project([station.lon,station.lat]);
     if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) ||
-        p.x < -20 || p.y < -20 || p.x > width+20 || p.y > height+20) continue;
+        p.x < 0 || p.y < 0 || p.x > width || p.y > height) continue;
     // Always give the selected station its own dot.
     const chosen=station.id===selectedId;
     const key=chosen ? 'selected-'+station.id : Math.floor(p.x/cell)+':'+Math.floor(p.y/cell);
@@ -171,4 +171,13 @@ export function qualityReasons(station){
   if(!station.usable && reasons.length===0)reasons.push('Observation rejetée par les règles de qualité P3 ; motif non disponible.');
   if(station.usable && reasons.length===0)reasons.push('Observation qualifiée, sans anomalie attachée.');
   return reasons;
+}
+
+/** Counts exactly what is projected inside the current map viewport.
+ * A clustered marker can represent many visible stations. Outside stations
+ * are filtered in layoutMapMarkers; never confuse this with the global total.
+ */
+export function viewportCounts(filteredCount, visibleMarkers){
+  return {filtered:filteredCount,visible:visibleMarkers.reduce((sum,p)=>sum+p.count,0),
+    markers:visibleMarkers.length,clusters:visibleMarkers.filter(p=>p.count>1).length};
 }
