@@ -1,0 +1,68 @@
+name: P5 real-data 30-minute forecasting (manual, no fake results)
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/p5-forecasting.yml'
+      - 'src/urban_ops/p5.py'
+      - 'scripts/train_p5.py'
+      - 'scripts/p5_inventory.py'
+      - 'pyproject.toml'
+permissions:
+  contents: read
+  actions: read
+jobs:
+  model:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install P3 and data-history gate
+        run: python -m pip install -e .
+      - name: Count actual release archives (paginated; no synthetic captures)
+        id: ready
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/p5-inventory.json
+      - name: Download up to 10 days of verified real archives
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/p5-captures
+          python - <<'PY' > /tmp/p5-release-tags.txt
+          import json
+          x=json.load(open('data/p5-inventory.json'))
+          for tag in x['release_tags']: print(tag)
+          PY
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/p5-captures
+          done < /tmp/p5-release-tags.txt
+          test "$(find data/p5-captures -name 'capture-*.tar.gz' | wc -l)" -ge 900
+      - name: Restore Bronze/Silver/Gold from checksummed public captures
+        if: steps.ready.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' archives < <(find data/p5-captures -name 'capture-*.tar.gz' -print0 | sort -z)
+          python -m scripts.replay_capture --db-url sqlite:///./data/p5-history.sqlite "${archives[@]}" > data/p5-replay.json
+      - name: Fit candidate and score against naive holdout
+        if: steps.ready.outputs.ready == 'true'
+        run: |
+          python -m pip install -e '.[ml]'
+          python -m scripts.train_p5 --db-url sqlite:///./data/p5-history.sqlite --output data/p5-output
+      - name: Publish only readiness or honest ML outputs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p5-evidence-${{ github.run_id }}
+          path: |
+            data/p5-inventory.json
+            data/p5-output/
+          if-no-files-found: ignore
+          retention-days: 14
