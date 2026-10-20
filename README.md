@@ -174,3 +174,8 @@ Prévision **des vélos disponibles à chaque station dans 30 minutes**, avec hi
 ## P6 — Cockpit Web Urban Ops
 
 Un cockpit géographique statique dans `web/` présente les **capturations réelles P3 archivées**, la qualité, les vélos qualifiés et les quatre quadrants analytiques. Filtrage, recherche et inspection des stations; courbe discontinue en cas de trous; **P5 est bloqué** tant que la validation réelle est insuffisante. `scripts/export_p6.py` fabrique `web/data/network.json` depuis les archives SQL restaurées; `scripts/sync-p6.ps1` récupère le dernier artifact P6 sur GitHub dans **le même dossier local UrbanOps**. Le workflow `P6 Urban Ops cockpit — checks and verified real snapshot` publie des artefacts sur GitHub Actions, **sans déploiement ni paiement**. [Guide P6](docs/P6_COCKPIT.md).
+
+
+## P6.9 — Paquet vérifiable, **aucun déploiement**
+
+Le workflow P6, après rejeu SHA-256 de vraies archives P3, fabrique `dist/p6-public/` avec données et bibliothèque MapLibre auto-hébergée, politique CSP, `manifest.json` SHA-256 et `provenance.json`. Chromium teste le **bundle final** sous un sous-chemin HTTP, sans publier. L'artefact `urban-ops-p69-publication-ready` est disponible dans GitHub Actions pendant 7 jours; **GitHub Pages n'est pas configuré ni activé**. La stratégie de publication gratuite, à soumettre pour autorisation explicite, est détaillée dans [P6.9 — Publication readiness](docs/P69_PUBLICATION_READINESS.md). P5 demeure non validé.
