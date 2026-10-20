@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,issueLabel,p5Gate,qualityReasons} from './core.js';
+import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,viewportCounts,issueLabel,p5Gate,qualityReasons} from './core.js';
 const stations=[
  {id:'1',name:'A & <B>',code:'001',lat:48.8,lon:2.2,usable:true,condition:'available',bikes:5,docks:5},
  {id:'2',name:'Deux',code:'002',lat:48.9,lon:2.4,usable:true,condition:'empty',bikes:0,docks:10},
@@ -75,4 +75,18 @@ test('unobserved station and rejected station have distinct explanations',()=>{
   assert.ok(q.some(x=>/Service interrompu/.test(x)));
   assert.ok(q.some(x=>/Signal station trop ancien/.test(x)));
   assert.equal(issueLabel('alias_bikes_mismatch').includes('deux champs'),true);
+});
+
+test('P6.8 viewport counters exclude offscreen data and correctly count clusters',()=>{
+ const pts=[
+  {...stations[0],id:'a',lat:48.8,lon:2.30},
+  {...stations[1],id:'b',lat:48.8,lon:2.31},
+  {...stations[2],id:'c',lat:48.8,lon:9.0},
+ ];
+ const markers=layoutMapMarkers(pts,([lon])=>({x:lon*100,y:100}),300,300,11);
+ const counts=viewportCounts(pts.length,markers);
+ assert.deepEqual(counts,{filtered:3,visible:2,markers:1,clusters:1});
+ assert.equal(markers[0].ids.length,2);
+ assert.equal(layoutMapMarkers([pts[0]],()=>({x:-0.01,y:100}),300,300).length,0);
+ assert.equal(layoutMapMarkers([pts[0]],()=>({x:300.01,y:100}),300,300).length,0);
 });

@@ -1,6 +1,6 @@
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
          historySegments, relativeAge, captureFreshness, html, display, pct, localTime,
-         layoutMapMarkers, pickMapMarker, issueLabel, p5Gate, qualityReasons } from './core.js';
+         layoutMapMarkers, pickMapMarker, viewportCounts, issueLabel, p5Gate, qualityReasons } from './core.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = {available:'#94dabb',empty:'#efac84',unknown:'#78919c'};
@@ -54,6 +54,28 @@ function paintStats() {
 function filtered() {
   return selectStations(state.stations,{query:state.query,filter:state.filter,sector:state.sector});
 }
+function setViewportCount(filteredCount, markers, fallback=false){
+  const counts=viewportCounts(filteredCount,markers);
+  const label=`${display(counts.filtered)} filtrées · ${display(counts.visible)} visibles · ${display(counts.markers)} repères`;
+  const el=$('map-count');
+  el.textContent=label;
+  el.dataset.filtered=String(counts.filtered);
+  el.dataset.visible=String(counts.visible);
+  el.dataset.markers=String(counts.markers);
+  el.title=`${counts.filtered} stations correspondant aux filtres dans tout le réseau ; ${counts.visible} stations réellement dans la zone cartographique affichée ; ${counts.markers} repères dessinés, dont ${counts.clusters} regroupements.${fallback?' Mode de secours sans fond cartographique.':''}`;
+}
+function resetInspectorScroll(){
+  const inspector=$('inspector-content');
+  inspector.scrollTop=0;
+  inspector.querySelectorAll('.station-list').forEach(list=>{list.scrollTop=0});
+}
+function fitNetworkMap(){
+  if(!state.mapReady || !state.map || !state.stations.length)return;
+  const area=bounds(state.stations);
+  state.map.fitBounds([[area.west,area.south],[area.east,area.north]],{
+    padding:42,maxZoom:11.5,duration:450
+  });
+}
 function repaintMap() {
   const stations=filtered();
   const suffix=state.mapReady?'STATIONS GÉOLOCALISÉES':state.mapFailed?'STATIONS EN MODE DE SECOURS':'STATIONS À POSITIONNER';
@@ -84,6 +106,7 @@ function fallbackMap(points) {
     point.addEventListener('click',()=>selectStation(station.id));frag.append(point);
   }
   surface.append(frag);
+  setViewportCount(points.length,points.map(p=>({count:1})),true);
 }
 function mapFallback() {
   if(state.mapFailed)return;
@@ -111,7 +134,8 @@ function drawMapMarkers(){
     if(!ctx){mapFallback();return;}
     ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);
     ctx.clearRect(0,0,w,h);
-    const markers=layoutMapMarkers(filtered(),pos=>state.map.project(pos),
+    const stations=filtered();
+    const markers=layoutMapMarkers(stations,pos=>state.map.project(pos),
       w,h,state.map.getZoom(),state.selected);
     state.markerPositions=markers;
     for(const p of markers){
@@ -129,7 +153,7 @@ function drawMapMarkers(){
       }
     }
     ctx.globalAlpha=1;
-    $('map-count').textContent=`${display(filtered().length)} STATIONS · ${display(markers.length)} REPÈRES`;
+    setViewportCount(stations.length,markers);
   }catch(error){
     console.warn('La superposition cartographique a échoué',error);
     mapFallback();
@@ -193,7 +217,7 @@ function selectStation(id) {
   state.selected=station.id;state.clusterIds=null;state.view='reseau';state.sector='all';
   // Preserve search/filter context when following a result into its detail.
   history.replaceState(null,'','#reseau');
-  updateNav();paintStats();renderInspector();repaintMap();focusStation(station);
+  updateNav();paintStats();renderInspector();resetInspectorScroll();repaintMap();focusStation(station);
 }
 function updateNav() {
   for(const nav of document.querySelectorAll('.nav')){
@@ -255,12 +279,12 @@ function renderInspector(){
       <h3>${display(stations.length)} stations à cet emplacement</h3>
       <p>Les stations restent géographiquement rapprochées. Choisis une station pour ouvrir sa fiche.</p>
     </div><div class="station-list">${stationRows(stations)}</div>`;
-    box.querySelector('[data-dismiss-cluster]').onclick=()=>{state.clusterIds=null;renderInspector();repaintMap()};
+    box.querySelector('[data-dismiss-cluster]').onclick=()=>{state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap()};
     bindStationRows();return;
   }
   if(state.view==='reseau' && state.selected){
     const station=state.stations.find(s=>s.id===state.selected);
-    if(station){box.innerHTML=renderStationDetail(station);box.querySelector('[data-back]').onclick=()=>{state.selected=null;renderInspector();repaintMap()};return;}
+    if(station){box.innerHTML=renderStationDetail(station);box.querySelector('[data-back]').onclick=()=>{state.selected=null;renderInspector();resetInspectorScroll();repaintMap()};return;}
   }
   if(state.view==='reseau'){
     box.innerHTML=`<div class="panel-search"><div class="search-wrap"><span>⌕</span><input id="station-search" type="search" value="${html(state.query)}" aria-label="Rechercher une station" placeholder="Nom, numéro, identifiant…" autocomplete="off"/></div><div class="list-heading"><span>STATIONS / RÉSULTATS</span><span id="station-results">${display(filtered().length)} stations</span></div></div><div class="station-list" id="station-list">${stationRows(filtered())}</div>`;
@@ -298,7 +322,7 @@ function renderInspector(){
       state.query='';state.filter='unknown';
       document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='unknown'));
       history.replaceState(null,'','#reseau');
-      updateNav();paintStats();renderInspector();repaintMap();
+      updateNav();paintStats();renderInspector();resetInspectorScroll();repaintMap();
     };
     return;
   }
@@ -356,9 +380,11 @@ function renderTimeline() {
 function renderAll(){updateNav();paintStats();renderInspector();renderTimeline();repaintMap();}
 function activateView(view){
   if(!['reseau','territoires','fiabilite','previsions'].includes(view))return;
+  if(state.view===view)return; // Reclicking the active tab preserves ongoing exploration.
   state.view=view;state.selected=null;state.clusterIds=null;state.sector='all';state.query='';state.filter='all';
   document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
-  updateNav();paintStats();renderInspector();renderTimeline();repaintMap();
+  updateNav();paintStats();renderInspector();resetInspectorScroll();renderTimeline();repaintMap();
+  fitNetworkMap();
 }
 async function refresh(){
   try {
@@ -383,7 +409,7 @@ async function refresh(){
 for(const btn of document.querySelectorAll('.nav'))btn.addEventListener('click',()=>{activateView(btn.dataset.view);history.replaceState(null,'','#'+btn.dataset.view)});
 for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener('click',()=>{
   state.filter=btn.dataset.filter;document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el===btn));
-  state.selected=null;state.clusterIds=null;renderInspector();repaintMap();
+  state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
 });
 $('reload').addEventListener('click',refresh);
 const hash=location.hash.slice(1);if(['reseau','territoires','fiabilite','previsions'].includes(hash))state.view=hash;
@@ -398,10 +424,10 @@ $('map-reset').addEventListener('click',()=>{
   if(state.mapReady&&state.map){
     state.map.easeTo({center:[2.348,48.856],zoom:11,duration:500});
   }
-  renderInspector();repaintMap();
+  renderInspector();resetInspectorScroll();repaintMap();
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && (state.selected || state.clusterIds)){
-    state.selected=null;state.clusterIds=null;renderInspector();repaintMap();
+    state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
   }
 });
