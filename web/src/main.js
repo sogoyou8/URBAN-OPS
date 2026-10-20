@@ -1,16 +1,17 @@
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
          historySegments, relativeAge, captureFreshness, html, display, pct, localTime,
-         layoutMapMarkers, pickMapMarker, issueLabel } from './core.js';
+         layoutMapMarkers, pickMapMarker, issueLabel, p5Gate, qualityReasons } from './core.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = {available:'#94dabb',empty:'#efac84',unknown:'#78919c'};
 const state = { dataset:null, stations:[], view:'reseau', query:'', filter:'all', sector:'all', selected:null,
-                map:null, mapReady:false, mapFailed:false, markerCanvas:null, markerPositions:[] };
+                map:null, mapReady:false, mapFailed:false, markerCanvas:null, markerPositions:[], clusterIds:null };
 
 function paintStats() {
   const d=state.dataset, m=d.metrics;
   const qualified=summary(state.sector==='all'?state.stations:state.stations.filter(s=>s.sector===state.sector));
   const issues=d.issues.reduce((n,i)=>n+i.count,0);
+  const ml=p5Gate(d);
   const values={
     reseau:[
       ['STATIONS RÉFÉRENCÉES',display(m.stations),'dans le catalogue de stations'],
@@ -32,8 +33,8 @@ function paintStats() {
     ],
     previsions:[
       ['HORIZON CIBLE','30 min','prévision par station à T + 30 min'],
-      ['STATUT DU MODÈLE','—','P5 non validé sur historique réel'],
-      ['HISTORIQUE MINIMUM','7 jours','900 captures et couverture suffisante exigées'],
+      ['CAPTURES RECENSÉES',ml.available?display(ml.captures):'—','archives GitHub sur 10 jours ; non vérifiées ici'],
+      ['JOURS OBSERVÉS',ml.available?String(ml.days.toLocaleString('fr-FR',{maximumFractionDigits:1})):'—','minimum P5 : 7 jours'],
       ['SCORE PRÉDICTIF','—','aucune métrique réelle validée'],
     ],
   }[state.view];
@@ -160,7 +161,15 @@ function initMap() {
       const p=pickMapMarker(state.markerPositions,evt.point.x,evt.point.y);
       if(!p)return;
       if(p.count>1){
-        map.easeTo({center:[p.lon,p.lat],zoom:Math.min(17,map.getZoom()+2),duration:550});
+        if(map.getZoom()>=16.4){
+          state.view='reseau';state.selected=null;state.clusterIds=p.ids;
+          state.query='';state.filter='all';state.sector='all';
+          document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
+          history.replaceState(null,'','#reseau');
+          updateNav();paintStats();renderInspector();repaintMap();
+        } else {
+          map.easeTo({center:[p.lon,p.lat],zoom:Math.min(17,map.getZoom()+2),duration:550});
+        }
       }else if(p.ids[0])selectStation(p.ids[0]);
     });
     map.on('mousemove',evt=>{
@@ -181,8 +190,8 @@ function focusStation(station) {
 function selectStation(id) {
   const station=state.stations.find(s=>s.id===id);
   if(!station)return;
-  state.selected=station.id;state.view='reseau';state.sector='all';state.query='';state.filter='all';
-  document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
+  state.selected=station.id;state.clusterIds=null;state.view='reseau';state.sector='all';
+  // Preserve search/filter context when following a result into its detail.
   history.replaceState(null,'','#reseau');
   updateNav();paintStats();renderInspector();repaintMap();focusStation(station);
 }
@@ -224,6 +233,11 @@ function renderStationDetail(station){
     <div class="detail-meta"><span>Capacité déclarée</span><strong>${display(station.capacity)} bornes</strong></div>
     <div class="detail-meta"><span>Dernier signal station</span><strong>${station.reported_at?localTime(station.reported_at):'Non disponible'}</strong></div>
     <div class="detail-meta"><span>Position</span><strong>${station.lat.toFixed(5)} / ${station.lon.toFixed(5)}</strong></div>
+    <div class="station-quality">
+      <span class="station-kicker">QUALITÉ DE L’OBSERVATION ARCHIVÉE</span>
+      <ul>${qualityReasons(station).map(reason=>`<li>${html(reason)}</li>`).join('')}</ul>
+      ${station.lag_seconds!==null && station.lag_seconds!==undefined ? `<p>Retard du dernier signal : ${display(station.lag_seconds)} secondes</p>`:''}
+    </div>
     <p class="detail-disclaimer" style="margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6">Ces valeurs proviennent d’une capture archivée, et non d'une consultation en temps réel.</p>
   </div>`;
 }
@@ -233,6 +247,17 @@ function stationRows(stations) {
 }
 function renderInspector(){
   const box=$('inspector-content');
+  if(state.view==='reseau' && state.clusterIds?.length){
+    const stations=state.clusterIds.map(id=>state.stations.find(s=>s.id===id)).filter(Boolean);
+    box.innerHTML=`<div class="cluster-picker">
+      <button type="button" class="back-btn" data-dismiss-cluster>← TOUTES LES STATIONS</button>
+      <span class="station-kicker">REPÈRE GÉOGRAPHIQUE / REGROUPEMENT</span>
+      <h3>${display(stations.length)} stations à cet emplacement</h3>
+      <p>Les stations restent géographiquement rapprochées. Choisis une station pour ouvrir sa fiche.</p>
+    </div><div class="station-list">${stationRows(stations)}</div>`;
+    box.querySelector('[data-dismiss-cluster]').onclick=()=>{state.clusterIds=null;renderInspector();repaintMap()};
+    bindStationRows();return;
+  }
   if(state.view==='reseau' && state.selected){
     const station=state.stations.find(s=>s.id===state.selected);
     if(station){box.innerHTML=renderStationDetail(station);box.querySelector('[data-back]').onclick=()=>{state.selected=null;renderInspector();repaintMap()};return;}
@@ -252,11 +277,52 @@ function renderInspector(){
       }});return;
   }
   if(state.view==='fiabilite'){
-    const m=state.dataset.metrics;
-    box.innerHTML=`<div class="side-section"><span class="station-kicker">QUALITÉ / DERNIÈRE CAPTURE</span><h3>Une mesure, pas une promesse.</h3><p>${display(m.usable)} stations qualifiées sur ${display(m.observed)} observations au dernier instant. Les anomalies ci-dessous sont des <strong>signalements de qualité</strong>, pas nécessairement des stations uniques.</p><span class="station-kicker">SIGNALEMENTS PAR CATÉGORIE</span>${state.dataset.issues.length?state.dataset.issues.map(x=>`<div class="quality-row"><span>${html(issueLabel(x.code))}</span><strong>${display(x.count)}</strong></div>`).join(''):'<div class="quality-row"><span>Aucun signalement enregistré</span></div>'}<p>Une capture ancienne ne décrit jamais la disponibilité actuelle des vélos.</p></div>`;return;
+    const m=state.dataset.metrics,q=state.dataset.quality_diagnostics;
+    const unobserved=q?.not_observed,unusable=q?.observed_but_unusable;
+    box.innerHTML=`<div class="side-section quality-audit">
+      <span class="station-kicker">AUDIT / DERNIÈRE CAPTURE ARCHIVÉE</span>
+      <h3>Pourquoi des observations sont rejetées.</h3>
+      <p>Une station <strong>sans statut</strong> n’est pas une station sans vélo. Une station observée mais non exploitable reste exclue des sommes.</p>
+      <div class="quality-overview">
+        <div><strong>${unobserved==null?'—':display(unobserved)}</strong><span>stations sans observation</span></div>
+        <div><strong>${unusable==null?'—':display(unusable)}</strong><span>observations reçues, non exploitables</span></div>
+        <div><strong>${q?.observed_non_operational==null?'—':display(q.observed_non_operational)}</strong><span>stations au service interrompu (peut chevaucher d'autres motifs)</span></div>
+      </div>
+      <button class="quality-open-list" type="button" id="inspect-unqualified">Inspecter les ${display(state.stations.filter(s=>!s.usable).length)} stations non qualifiées ↗</button>
+      <span class="station-kicker">SIGNALEMENTS DANS LA CAPTURE / ÉVÉNEMENTS</span>
+      ${state.dataset.issues.length?state.dataset.issues.map(x=>`<div class="quality-row"><span>${html(issueLabel(x.code))}</span><strong>${display(x.count)}</strong></div>`).join(''):'<div class="quality-row"><span>Aucun signalement enregistré</span></div>'}
+      <p>Un signalement ne correspond pas nécessairement à une station unique, plusieurs motifs peuvent se cumuler. Aucun comptage de trajets ni réparation de valeurs manquantes.</p>
+    </div>`;
+    $('inspect-unqualified').onclick=()=>{
+      state.view='reseau';state.sector='all';state.selected=null;state.clusterIds=null;
+      state.query='';state.filter='unknown';
+      document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='unknown'));
+      history.replaceState(null,'','#reseau');
+      updateNav();paintStats();renderInspector();repaintMap();
+    };
+    return;
   }
   if(state.view==='previsions'){
-    box.innerHTML='<div class="side-section"><span class="station-kicker">P5 / INTELLIGENCE PRÉDICTIVE</span><div class="p5-icon" aria-hidden="true">◇</div><span class="solid-tag">PRÉVISION NON DISPONIBLE</span><h3>La fiabilité avant la prédiction.</h3><p>Le modèle à +30 minutes est développé, mais il attend un historique réel suffisant et une validation chronologique indépendante. Aucune prévision ni score de performance n’est affiché avant cette validation.</p><div class="detail-meta"><span>Horizon visé</span><strong>+30 minutes</strong></div><div class="detail-meta"><span>Évaluation</span><strong>Baseline vs modèle</strong></div><div class="detail-meta"><span>Statut</span><strong>Non validé</strong></div></div>';
+    const gate=p5Gate(state.dataset);
+    const n=gate.available?gate.captures:null;
+    const days=gate.available?gate.days:null;
+    const coverage=gate.coverage;
+    const progress=(value,target)=>value===null?'—':pct(Math.min(1,value/target));
+    box.innerHTML=`<div class="side-section forecast-readiness">
+      <span class="station-kicker">P5 / CONDITIONS D’ENTRAÎNEMENT</span>
+      <span class="solid-tag">PRÉVISION NON DISPONIBLE</span>
+      <h3>Des preuves avant le modèle.</h3>
+      <p>Ce compteur lit les <strong>noms des archives GitHub sur 10 jours</strong>. Il ne garantit pas leurs sommes de contrôle, ni l’existence de paires valides à +30 minutes, ni la qualité prédictive.</p>
+      <div class="p5-progress">
+        <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} du seuil de quantité</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
+        <div class="p5-progress-row"><span>Étendue historique</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} du seuil calendaire</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
+        <div class="p5-progress-row"><span>Couverture indicative</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Calculée entre les premières et dernières archives recensées</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
+      </div>
+      <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Seuils atteints, à vérifier':'Seuils non atteints'}</strong></div>
+      <div class="detail-meta"><span>Paires futures +30 min</span><strong>Non vérifiées ici</strong></div>
+      <div class="detail-meta"><span>Évaluation ML vs baseline</span><strong>Non validée</strong></div>
+      <p class="readiness-note">${gate.checkedAt?'Inventaire vérifié le '+html(localTime(gate.checkedAt)):'Inventaire GitHub non joint à cet export. Lance une nouvelle exportation P6.'} · Aucune prévision ne sera affichée avant une validation P5 indépendante.</p>
+    </div>`;
   }
 }
 function bindStationRows(){
@@ -290,7 +356,7 @@ function renderTimeline() {
 function renderAll(){updateNav();paintStats();renderInspector();renderTimeline();repaintMap();}
 function activateView(view){
   if(!['reseau','territoires','fiabilite','previsions'].includes(view))return;
-  state.view=view;state.selected=null;state.sector='all';state.query='';state.filter='all';
+  state.view=view;state.selected=null;state.clusterIds=null;state.sector='all';state.query='';state.filter='all';
   document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
   updateNav();paintStats();renderInspector();renderTimeline();repaintMap();
 }
@@ -301,7 +367,7 @@ async function refresh(){
     if(!response.ok)throw new Error(`Export P6 introuvable (HTTP ${response.status}).`);
     const dataset=validateDataset(await response.json());
     state.dataset=dataset;state.stations=sectors(dataset.stations);
-    state.selected=null;
+    state.selected=null;state.clusterIds=null;
     $('error-state').hidden=true;
     renderAll();
     if(!state.map&&!state.mapFailed){
@@ -317,7 +383,7 @@ async function refresh(){
 for(const btn of document.querySelectorAll('.nav'))btn.addEventListener('click',()=>{activateView(btn.dataset.view);history.replaceState(null,'','#'+btn.dataset.view)});
 for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener('click',()=>{
   state.filter=btn.dataset.filter;document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el===btn));
-  state.selected=null;renderInspector();repaintMap();
+  state.selected=null;state.clusterIds=null;renderInspector();repaintMap();
 });
 $('reload').addEventListener('click',refresh);
 const hash=location.hash.slice(1);if(['reseau','territoires','fiabilite','previsions'].includes(hash))state.view=hash;
@@ -325,4 +391,17 @@ refresh();
 window.addEventListener('hashchange',()=>{
   const requested=location.hash.slice(1);
   if(['reseau','territoires','fiabilite','previsions'].includes(requested))activateView(requested);
+});
+
+$('map-reset').addEventListener('click',()=>{
+  state.selected=null;state.clusterIds=null;
+  if(state.mapReady&&state.map){
+    state.map.easeTo({center:[2.348,48.856],zoom:11,duration:500});
+  }
+  renderInspector();repaintMap();
+});
+document.addEventListener('keydown',event=>{
+  if(event.key==='Escape' && (state.selected || state.clusterIds)){
+    state.selected=null;state.clusterIds=null;renderInspector();repaintMap();
+  }
 });
