@@ -164,3 +164,8 @@ Un Worker Cron (toutes les 5 minutes dans la configuration) et un archivage R2 S
 ## P3.5 — Chemin gratuit sans abonnement R2
 
 Pour respecter la contrainte **strictement sans carte ni abonnement payant**, utiliser le [déclencheur Cloudflare Workers Free vers GitHub Actions](docs/P35_FREE_WORKER_GITHUB.md). Il ne contient aucune liaison R2 et ne déploie rien automatiquement : le programme est livré et testé, l'activation nécessite la configuration personnelle d'un jeton GitHub limité. Les captures demeurent des archives GitHub Releases. L'ancien prototype R2 reste non déployé.
+
+
+## P5 — Machine Learning sous contrôle historique
+
+Prévision **des vélos disponibles à chaque station dans 30 minutes**, avec historique P3 vérifié, baseline de persistance, modèle de gradient boosting, séparation temporelle avec purge anti-fuite et mesure MAE/RMSE sur données futures. **Aucune métrique réelle n’est annoncée tant que nous n’avons pas au moins sept jours, 900 captures et une couverture suffisante.** Le workflow GitHub `P5 real-data 30-minute forecasting` exécute d’abord cette vérification, puis entraîne uniquement si les archives sont suffisantes. Voir [P5 — Machine Learning](docs/P5_MACHINE_LEARNING.md). Aucune infrastructure payante nouvelle.
