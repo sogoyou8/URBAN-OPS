@@ -138,8 +138,8 @@ une par une. Il ne télécharge jamais chaque station séparément.
   https://github.com/angristan/velib/issues/4 demeure ouverte.
 - Vérifier la session dans Chromium visible ; aucun cookie n'est copié
   manuellement ni sauvegardé. Aucune résolution automatisée de Turnstile.
-- Le téléchargement n'est **jamais** lancé par défaut ; seul \`--run\` le démarre.
-  Le drapeau artificiel \`--owner-approved\` a été supprimé : son absence
+- Le téléchargement n'est **jamais** lancé par défaut ; seul `--run` le démarre.
+  Le drapeau artificiel `--owner-approved` a été supprimé : son absence
   ne modifie pas les droits d'accès ni les règles du fournisseur.
 - Une requête à la fois, attente de **60 secondes par défaut** et **30
   secondes minimum** ; aucune rafale parallèle ni réessai automatique après
@@ -148,16 +148,16 @@ une par une. Il ne télécharge jamais chaque station séparément.
 
 ### Installation (une fois)
 
-\`\`\`powershell
+```powershell
 .\.venv\Scripts\python.exe -m pip install -e ".[pulse]"
 .\.venv\Scripts\python.exe -m playwright install chromium
-\`\`\`
+```
 
 ### Prévisualiser sans accéder au service
 
-\`\`\`powershell
+```powershell
 .\.venv\Scripts\python.exe -m scripts.collect_pulse_replay_batch --output data/pulse-batch --hours 168
-\`\`\`
+```
 
 Cette commande crée un plan local, sans accès réseau. L'ancre UTC est fixée
 au moment de la création : il faut démarrer rapidement car la conservation
@@ -167,13 +167,13 @@ les fichiers archivés.
 
 ### Lancer explicitement
 
-\`\`\`powershell
+```powershell
 .\.venv\Scripts\python.exe -m scripts.collect_pulse_replay_batch --output data/pulse-batch --hours 168 --run --interval-seconds 60
-\`\`\`
+```
 
 Après la vérification de session, les réponses sont validées avant
-enregistrement dans \`data/pulse-batch\`, puis suivies dans
-\`pulse_batch_manifest.json\` avec empreintes SHA-256. Relancer exactement
+enregistrement dans `data/pulse-batch`, puis suivies dans
+`pulse_batch_manifest.json` avec empreintes SHA-256. Relancer exactement
 la même commande dans le même dossier vérifie les fichiers présents et
 reprend les fenêtres encore manquantes.
 
@@ -184,11 +184,11 @@ de rétention. Les données correctement téléchargées sont conservées.
 
 ### Reconstruire et auditer avant P5
 
-\`\`\`powershell
+```powershell
 .\.venv\Scripts\python.exe -m scripts.reconstruct_pulse_replay --output data/pulse-audit data/pulse-batch/replay-at-*.json
-\`\`\`
+```
 
 Le reconstructeur retire les stations signalées supprimées par un changement
-compact \`m=e=d=o=0\`, sans prolonger artificiellement leur présence.
+compact `m=e=d=o=0`, sans prolonger artificiellement leur présence.
 L'export affiche la provenance, la couverture, les trous et les anomalies ;
 **il n'entraîne pas P5 et ne modifie pas les observations P3**.
