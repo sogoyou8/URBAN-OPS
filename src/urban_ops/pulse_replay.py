@@ -57,9 +57,8 @@ def _station(row, *, baseline: bool) -> dict:
     }
     result["num_bikes_available"] = result["mechanical_bikes"] + result["electric_bikes"]
     if baseline:
-        result["station_reported_at_utc"] = (
-            _utc(_integer(row["r"], "r", 0, 9_999_999_999)) if row["r"] else ""
-        )
+        reported = _integer(row["r"], "r", 0, 9_999_999_999)
+        result["station_reported_at_utc"] = _utc(reported) if reported else ""
         result.update(delta_mechanical="", delta_electric="", delta_docks="")
     else:
         result["station_reported_at_utc"] = ""  # Not in Pulse's diff schema.
@@ -75,7 +74,7 @@ def decode_window(raw: bytes, source_file: str) -> tuple[dict, list[dict]]:
         root = json.loads(raw)
     except (UnicodeDecodeError, ValueError) as exc:
         raise ReplayValidationError(f"{source_file}: invalid JSON") from exc
-    if not isinstance(root, dict) or root.get("v") != 1:
+    if not isinstance(root, dict) or type(root.get("v")) is not int or root["v"] != 1:
         raise ReplayValidationError(f"{source_file}: expected replay version 1")
     minutes = root.get("minutes")
     if type(minutes) is not int or minutes not in (15, 30, 60):
@@ -118,7 +117,7 @@ def decode_window(raw: bytes, source_file: str) -> tuple[dict, list[dict]]:
     previous_observed, previous_source = base_at, source_at
     changed = 0
     for frame in frames:
-        if not isinstance(frame, dict) or frame.get("v") != 1:
+        if not isinstance(frame, dict) or type(frame.get("v")) is not int or frame["v"] != 1:
             raise ReplayValidationError(f"{source_file}: invalid frame")
         at = _integer(frame.get("observedAt"), "frame.observedAt", 1, 9_999_999_999)
         previous = _integer(frame.get("previousSourceUpdatedAt"), "frame.previousSourceUpdatedAt", 1, 9_999_999_999)
