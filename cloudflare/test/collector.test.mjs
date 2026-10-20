@@ -10,7 +10,7 @@ function fixtureFeed(type, count = 1517, stale = false) {
     data: { stations: Array.from({length: count}, (_, i) => ({station_id: i+1, ...(type === 'station_status' ? {num_bikes_available:4, num_docks_available:6} : {capacity:10,lat:48.8,lon:2.3})})) },
   });
 }
-function setup({statusCode = 200, stale = false, count = 1517} = {}) {
+function setup({statusCode = 200, stale = false, staleInfo = false, count = 1517} = {}) {
   const data = new Map();
   const calls = [];
   const bucket = {
@@ -28,7 +28,7 @@ function setup({statusCode = 200, stale = false, count = 1517} = {}) {
   async function fetchMock(url) {
     calls.push(url);
     const which = url.endsWith('station_status.json') ? 'station_status' : 'station_information';
-    return new Response(statusCode === 200 ? fixtureFeed(which, count, stale) : 'error', {status:statusCode});
+    return new Response(statusCode === 200 ? fixtureFeed(which, count, (which === 'station_status' && stale) || (which === 'station_information' && staleInfo)) : 'error', {status:statusCode});
   }
   return {data, calls, bucket, fetchMock};
 }
@@ -69,4 +69,9 @@ test('must have configured bucket binding', async () => {
 });
 test('UTC object key deterministic', () => {
   assert.equal(objectKey(time),'r2-captures/v1/2026-10-20/snapshot-20261020T110500Z.json.gz');
+});
+test('older station_information is permitted while station_status must be fresh', async () => {
+  const x=setup({staleInfo:true});
+  const result=await collectOnce({URBAN_ARCHIVES:x.bucket},{scheduledTime:time,now:time,fetchImpl:x.fetchMock});
+  assert.equal(result.state,'archived');
 });
