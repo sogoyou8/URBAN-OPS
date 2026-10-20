@@ -168,7 +168,7 @@ def acquire(output_dir: Path, manifest: dict, requester: Callable[[str], tuple[i
             raise CollectionStopped(f"Invalid API replay for {utc(at)}: {exc}") from exc
         tmp = target.with_suffix(".json.tmp")
         try:
-            with tmp.open("xb") as out:
+            with tmp.open("wb") as out:  # Replace a stale .tmp from a prior interrupted write.
                 out.write(raw)
             os.replace(tmp, target)
         finally:
