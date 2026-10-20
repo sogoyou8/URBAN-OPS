@@ -91,8 +91,10 @@ def test_invalid_windows(change, match):
 def test_duplicate_import_and_no_overwrite(tmp_path):
     source = tmp_path / "a.json"
     source.write_bytes(payload())
+    copy = tmp_path / "copy.json"
+    copy.write_bytes(source.read_bytes())
     with pytest.raises(ReplayValidationError, match="duplicate replay content"):
-        import_replays([source, tmp_path / "copy.json"], tmp_path / "out")
+        import_replays([source, copy], tmp_path / "out")
     # Initial failure should never publish a partial file.
     assert not (tmp_path / "out" / "pulse_replay_sparse.csv").exists()
 
