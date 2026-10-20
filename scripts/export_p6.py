@@ -78,6 +78,18 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
                 WHERE run_id=:run GROUP BY issue_code ORDER BY count DESC, issue_code
             """), {"run": latest["run_id"]}).mappings()
             issues = [{"code": r["issue_code"], "count": int(r["count"])} for r in issue_rows]
+            # Per-station facts are keyed to the exact latest successful run.
+            # One station may have several issue events; never infer a one-to-one count.
+            station_issue_rows = [dict(r) for r in conn.execute(text("""
+                SELECT station_id, issue_code, severity
+                FROM data_quality_issues WHERE run_id=:run AND station_id IS NOT NULL
+                ORDER BY station_id, issue_code
+            """), {"run": latest["run_id"]}).mappings()]
+            station_issues = {}
+            for item in station_issue_rows:
+                station_issues.setdefault(str(item["station_id"]), []).append({
+                    "code": str(item["issue_code"]), "severity": str(item["severity"])
+                })
     finally:
         engine.dispose()
 
@@ -99,6 +111,9 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
             "electric": as_int(r["electric_bikes"]) if usable else None,
             "reported_at": iso(r["station_reported_at"]) if r["station_reported_at"] else None,
             "lag_seconds": as_int(r["reported_lag_seconds"]),
+            "is_operational": (all(r[flag] == 1 for flag in ("is_installed", "is_renting", "is_returning"))
+                               if present else None),
+            "issues": station_issues.get(str(r["station_id"]), []),
         })
     current = counts.get(latest["run_id"])
     if not current:
@@ -121,6 +136,11 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
         prev = at
     observed = int(current["observed"])
     usable = int(current["usable"] or 0)
+    # Reasons can overlap. Count disjoint observation states separately.
+    not_observed = sum(not s["observed"] for s in stations)
+    unusable_observed = sum(s["observed"] and not s["usable"] for s in stations)
+    non_operational = sum(s["observed"] and s["is_operational"] is False for s in stations)
+    multiple_issues = sum(len(s["issues"]) > 1 for s in stations)
     return {
         "schema_version": 1, "dataset_type": "archived_p3_observations",
         "source": "Vélib' Métropole open data (ODbL) via URBAN-OPS P3",
@@ -133,6 +153,15 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
                     "docks": int(current["docks"] or 0), "empty": int(current["empty"] or 0),
                     "capture_count": len(history)},
         "stations": stations, "history": history, "issues": issues,
+        "quality_diagnostics": {
+            "not_observed": not_observed,
+            "observed_but_unusable": unusable_observed,
+            "observed_non_operational": non_operational,
+            "stations_with_multiple_issue_events": multiple_issues,
+            "limitation": "Issue events overlap; an issue count is not a distinct station count.",
+        },
+        "p5_readiness": {"status": "unavailable",
+                         "reason": "No release-wide P5 inventory included in this export."},
         "forecast": {"status": "unavailable", "horizon_minutes": 30,
                      "reason": "P5 has not passed real historical holdout validation."},
         "limitations": ["Captured archive, not real-time availability", "No invented trips or durations",
@@ -145,8 +174,28 @@ def main(argv=None):
     p.add_argument("--db-url", default="sqlite:///./data/p6-real.sqlite")
     p.add_argument("--output", type=Path, default=Path("web/data/network.json"))
     p.add_argument("--history-limit", type=int, default=MAX_HISTORY)
+    p.add_argument("--p5-inventory", type=Path,
+                   help="Independent GitHub Release asset inventory from scripts.p5_inventory")
     args = p.parse_args(argv)
     result = export(args.db_url, history_limit=args.history_limit)
+    if args.p5_inventory:
+        inventory = json.loads(args.p5_inventory.read_text(encoding="utf-8"))
+        gate = inventory.get("readiness")
+        if not isinstance(gate, dict) or not isinstance(gate.get("ready"), bool) or \
+                not isinstance(gate.get("captures"), int) or \
+                inventory.get("source") != "GitHub Release asset names (not P3 revalidated content)":
+            raise ValueError("Unverified P5 inventory: refusing readiness injection")
+        result["p5_readiness"] = {
+            "status": "eligible_to_attempt_training" if gate["ready"] else "insufficient_history",
+            "checked_at_utc": iso(datetime.now(timezone.utc)),
+            "captures": gate["captures"], "span_days": gate.get("span_days"),
+            "coverage_estimate": gate.get("coverage_estimate"),
+            "thresholds": {"min_days": 7, "min_captures": 900, "min_coverage": 0.40},
+            "reason": gate.get("reason"),
+            "from_utc": gate.get("from_utc"), "through_utc": gate.get("through_utc"),
+            "source": inventory["source"],
+            "limitation": "Release asset filename inventory, NOT checksum replay or validated +30min target pairs. Ready means permission to attempt P5 only.",
+        }
     args.output.parent.mkdir(parents=True, exist_ok=True)
     temp = args.output.with_suffix(".tmp")
     temp.write_text(json.dumps(result, ensure_ascii=False, separators=(",", ":")) + "\n", encoding="utf-8")
