@@ -110,7 +110,8 @@ def audit(inventory: list, now: datetime | None = None, window_hours: int = 24,
     window_start = max(since, instants[0]) if instants else since
     span_minutes = (now - window_start).total_seconds() / 60
     expected = (1 + math.floor(span_minutes / cadence_minutes)) if count else None
-    coverage = min(1.0, count / expected) if expected else None
+    # One point has no observed interval: reporting 100% would be misleading.
+    coverage = min(1.0, count / expected) if expected and count >= 2 else None
     gaps = [round((b - a).total_seconds() / 60, 2)
             for a, b in zip(instants, instants[1:])]
     age = round((now - latest).total_seconds() / 60, 2) if latest else None
