@@ -172,3 +172,41 @@ def test_cli_rejects_thin_history_and_creates_no_model(tmp_path):
     assert result['status']=='not_ready'
     assert (tmp_path/'output'/'P5_STATUS.json').is_file()
     assert not (tmp_path/'output'/'model.joblib').exists()
+
+
+def synthetic_paired_examples(count=1400, *, signal=True):
+    """Model algorithm tests only. Fabricated examples never used as real evidence."""
+    from urban_ops.p5 import Example
+    for i in range(count):
+        now = T + timedelta(minutes=5*i)
+        current = i % 9
+        target = (current + 3) % 9 if signal else current
+        values = (float(current), float(8-current), 8., float(current), 0., 80.,
+                  float((current-1)%9), float((current-3)%9), 1., 3.,
+                  0.,1.,0.,1.,48.86,2.32)
+        yield Example(101,now,now+timedelta(minutes=30),values,float(target))
+
+
+def test_synthetic_model_training_and_evaluation_path():
+    pytest.importorskip('sklearn')
+    sets={key: Reservoir(3000,seed) for key,seed in [('train',1),('validation',2),('test',3)]}
+    for key,count in [('train',1000),('validation',200),('test',200)]:
+        for item in synthetic_paired_examples(count):
+            sets[key].add(item)
+    model, result=fit_and_score(sets,min_train=200,min_eval=100)
+    assert result['status']=='validated_model'
+    assert model is not None
+    assert result['holdout']['ml_mae'] < result['holdout']['persistence_mae']
+
+
+def test_perfect_persistence_baseline_blocks_fake_ml_skill():
+    pytest.importorskip('sklearn')
+    sets={key: Reservoir(2000,seed) for key,seed in [('train',1),('validation',2),('test',3)]}
+    for key,count in [('train',1000),('validation',200),('test',200)]:
+        for item in synthetic_paired_examples(count,signal=False):
+            sets[key].add(item)
+    model, result=fit_and_score(sets,min_train=200,min_eval=100)
+    assert result['validation']['persistence_mae']==0
+    assert result['holdout']['mae_skill_vs_persistence'] is None
+    assert result['status']=='baseline_wins_or_uncertain'
+    assert model is None
