@@ -16,4 +16,11 @@ jobs:
       - uses: actions/checkout@v4
       - name: Check single-folder PBIP sync and edit preservation (offline)
         shell: pwsh
+        run: ./scripts/test-sync-urbanops.ps1  windows-powershell51:
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell 5.1 compatibility and local edits protection
+        shell: powershell
         run: ./scripts/test-sync-urbanops.ps1

@@ -77,7 +77,7 @@ if ($ArtifactZip) {
     $runId = 'offline-' + (Get-Sha256 $artifact).Substring(0,16)
 } else {
     if (!(Get-Command gh -ErrorAction SilentlyContinue)) { throw 'GitHub CLI absent. Installer GitHub CLI (gh), puis gh auth login.' }
-    & gh auth status 2>&1 | Out-Null
+    & gh auth status 2>$null | Out-Null
     if ($LASTEXITCODE -ne 0) { throw 'Connexion GitHub CLI manquante : exécute gh auth login.' }
     $runJson = & gh run list --repo sogoyou8/URBAN-OPS --workflow p4-analytics.yml --branch main --status success --limit 1 --json databaseId,headSha,createdAt
     if ($LASTEXITCODE -ne 0 -or !$runJson) { throw 'Impossible de trouver une exécution P4 réussie sur GitHub.' }
