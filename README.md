@@ -156,3 +156,7 @@ réalisé et vérifié dans Power BI Desktop.
 ## P3.5 — Historique et régularité
 
 La collecte GitHub Actions est **best effort** ; deux captures espacées de plusieurs heures prouvent que le rythme visé n'est pas garanti. Un audit indépendant des archives de Releases est exécuté périodiquement et sur demande ; il remonte les écarts, l'âge de la dernière archive et une couverture indicative sur 24 h. Voir [P3.5 — Fiabilité de la collecte](docs/P35_COLLECTOR_RELIABILITY.md). Aucun événement passé n'est recréé.
+
+## P3.5 — Cloudflare : code préparé, **non déployé**
+
+Un Worker Cron (toutes les 5 minutes dans la configuration) et un archivage R2 Standard sont prêts et testés hors ligne, avec un convertisseur vers le replay Bronze/Silver/Gold existant. **Aucun bucket, abonnement ou déploiement Cloudflare n'a été créé.** R2 requiert une souscription et peut générer des frais au-delà des quotas gratuits; l'activation devra être explicitement approuvée. Voir [guide Cloudflare](docs/P35_CLOUDFLARE_PREPARATION.md).
