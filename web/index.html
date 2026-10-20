@@ -29,7 +29,7 @@
     </header>
     <main class="workspace">
       <section class="masthead" aria-label="Vue d'ensemble">
-        <div class="headline"><div class="eyebrow"><span class="index">01 / 04</span> <span>OBSERVATOIRE MÉTROPOLITAIN</span></div><h1>Le pouls du réseau<span class="period">.</span></h1><p>Vélib’ Métropole <span class="middle-dot">·</span> Données publiques archivées et qualifiées</p></div>
+        <div class="headline"><div class="eyebrow"><span class="index">01 / 04</span> <span>OBSERVATOIRE MÉTROPOLITAIN</span></div><h1 id="headline-title">Le pouls du réseau<span class="period">.</span></h1><p id="headline-description">État observé du réseau à la dernière capture archivée</p></div>
         <div class="truth"><span class="truth-dot"></span><div><strong id="freshness-label">EN ATTENTE DE CAPTURE</strong><small id="capture-time">Origine : P3 / Archives vérifiées</small></div></div>
       </section>
       <section class="metric-strip" aria-label="Indicateurs observés">
@@ -40,8 +40,8 @@
       </section>
       <section class="operational" aria-label="Carte et inspection des stations">
         <div class="map-panel">
-          <div class="map-header"><div><span class="panel-kicker">A / GÉOGRAPHIE</span><h2 id="map-title">Disponibilité par station</h2></div><div class="map-count" id="map-count">— POINTS AFFICHÉS</div></div>
-          <div id="map" aria-label="Carte géographique des stations, chargement en cours" role="region"></div>
+          <div class="map-header"><div><span class="panel-kicker">A / GÉOGRAPHIE</span><h2 id="map-title">Disponibilité par station</h2></div><div class="map-count" id="map-count" role="status" aria-live="polite">GÉOLOCALISATION EN CHARGEMENT</div></div>
+          <div id="map" aria-label="Carte interactive des stations : sélectionner un point pour inspecter ou une grappe pour zoomer. La liste à droite permet aussi une navigation au clavier." role="region"></div>
           <div id="map-fallback" class="map-fallback" hidden></div>
           <div class="map-control"><span class="control-label">AFFICHAGE</span><div class="filter-pills" role="group" aria-label="Filtrer les stations par état"><button type="button" class="filter-pill active" data-filter="all">Toutes</button><button type="button" class="filter-pill" data-filter="available">Disponibles</button><button type="button" class="filter-pill" data-filter="empty">Sans vélo</button><button type="button" class="filter-pill" data-filter="unknown">Non qualifiées</button></div></div>
           <div class="map-legend" aria-label="Légende des marqueurs"><span><i class="dot dot-good"></i> Vélos disponibles</span><span><i class="dot dot-empty"></i> Aucun vélo</span><span><i class="dot dot-unknown"></i> Donnée non qualifiée</span></div>

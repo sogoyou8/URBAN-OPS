@@ -86,3 +86,54 @@ export function html(text){return String(text??'').replace(/[&<>"']/g,c=>({'&':'
 export function display(n){return Number(n??0).toLocaleString('fr-FR');}
 export function pct(n){return n==null?'—':`${(100*n).toLocaleString('fr-FR',{maximumFractionDigits:1})} %`;}
 export function localTime(at){return new Intl.DateTimeFormat('fr-FR',{dateStyle:'short',timeStyle:'short',timeZone:'Europe/Paris'}).format(new Date(at));}
+/** Screen-space geographic points. No dependency on vector-tile style loading.
+ * Cluster at low zoom to preserve clickability and performance. */
+export function layoutMapMarkers(stations, project, width, height, zoom=11, selectedId=null) {
+  if (!Number.isFinite(width) || !Number.isFinite(height) || width<=0 || height<=0) return [];
+  const cell=zoom < 13.2 ? 25 : 11;
+  const cells=new Map();
+  for (const station of stations) {
+    if (!Number.isFinite(station.lon)||!Number.isFinite(station.lat)) continue;
+    const p=project([station.lon,station.lat]);
+    if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.y) ||
+        p.x < -20 || p.y < -20 || p.x > width+20 || p.y > height+20) continue;
+    // Always give the selected station its own dot.
+    const chosen=station.id===selectedId;
+    const key=chosen ? 'selected-'+station.id : Math.floor(p.x/cell)+':'+Math.floor(p.y/cell);
+    let group=cells.get(key);
+    if(!group){
+      group={x:0,y:0,lon:0,lat:0,count:0,ids:[],available:0,empty:0,unknown:0,selected:chosen};
+      cells.set(key,group);
+    }
+    group.x+=p.x;group.y+=p.y;group.lon+=station.lon;group.lat+=station.lat;
+    group.count++;group.ids.push(station.id);group[station.condition]++;
+  }
+  return [...cells.values()].map(g=>{
+    const n=g.count;
+    return {x:g.x/n,y:g.y/n,lon:g.lon/n,lat:g.lat/n,count:n,ids:g.ids,
+      condition:g.unknown===n?'unknown':g.available>0?'available':'empty',selected:g.selected};
+  });
+}
+
+export function pickMapMarker(points,x,y,radius=14) {
+  let best=null,dist=radius*radius;
+  for(const point of points){
+    const gap=(point.x-x)**2+(point.y-y)**2;
+    if(gap<dist){dist=gap;best=point;}
+  }
+  return best;
+}
+
+export const ISSUE_LABELS = Object.freeze({
+  stale_station_report:'Signal station trop ancien',
+  over_declared_capacity:'Total vélos + bornes supérieur à la capacité',
+  invalid_station_metadata:'Informations de station invalides',
+  missing_station_information:'Station absente du référentiel',
+  missing_station_status:'Statut de station absent',
+  invalid_counts:'Nombres de vélos ou bornes invalides',
+  invalid_station_timestamp:'Horodatage station invalide',
+  invalid_operational_flag:'État de service invalide',
+  bike_types_disagree:'Types de vélos incohérents',
+  station_code_mismatch:'Identifiants de station incohérents',
+});
+export function issueLabel(code){return ISSUE_LABELS[code] ?? String(code).replaceAll('_',' ');}

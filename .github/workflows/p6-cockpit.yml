@@ -43,6 +43,25 @@ jobs:
             echo 'Generated dataset must not be tracked in git' >&2
             exit 1
           fi
+  browser-smoke:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: browser-actions/setup-chrome@v1
+        id: browser
+      - name: Install headless browser driver without any deployment
+        working-directory: web
+        run: npm install --no-save --ignore-scripts puppeteer-core@24
+      - name: Exercise synthetic screen fixture in Chromium (never publish its data)
+        working-directory: web
+        env:
+          P6_CHROME: ${{ steps.browser.outputs.chrome-path }}
+        run: node src/browser-smoke.mjs
   real-export:
     if: github.event_name != 'pull_request'
     needs: cockpit-tests

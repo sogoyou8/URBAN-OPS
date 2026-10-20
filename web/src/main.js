@@ -1,20 +1,48 @@
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
-         historySegments, relativeAge, captureFreshness, html, display, pct, localTime } from './core.js';
+         historySegments, relativeAge, captureFreshness, html, display, pct, localTime,
+         layoutMapMarkers, pickMapMarker, issueLabel } from './core.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = {available:'#94dabb',empty:'#efac84',unknown:'#78919c'};
 const state = { dataset:null, stations:[], view:'reseau', query:'', filter:'all', sector:'all', selected:null,
-                map:null, mapReady:false, mapFailed:false };
+                map:null, mapReady:false, mapFailed:false, markerCanvas:null, markerPositions:[] };
 
 function paintStats() {
   const d=state.dataset, m=d.metrics;
-  $('stat-total').textContent=display(m.stations);
-  $('stat-bikes').textContent=display(m.bikes);
-  $('stat-empty').textContent=display(m.empty);
-  $('stat-empty-caption').textContent=`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations qualifiées`;
-  $('stat-usable').textContent=display(m.usable);
-  $('stat-denominator').textContent=`/ ${display(m.observed)}`;
-  $('stat-quality-caption').textContent=`${display(m.unusable)} observations non exploitables`;
+  const qualified=summary(state.sector==='all'?state.stations:state.stations.filter(s=>s.sector===state.sector));
+  const issues=d.issues.reduce((n,i)=>n+i.count,0);
+  const values={
+    reseau:[
+      ['STATIONS RÉFÉRENCÉES',display(m.stations),'dans le catalogue de stations'],
+      ['VÉLOS DISPONIBLES',display(m.bikes),'sur les seules stations qualifiées'],
+      ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations qualifiées`],
+      ['OBSERVATIONS EXPLOITABLES',display(m.usable),`${display(m.unusable)} observations non exploitables`],
+    ],
+    territoires:[
+      ['SECTEURS ANALYTIQUES', '4', 'quadrants géographiques, non administratifs'],
+      ['VÉLOS QUALIFIÉS',display(qualified.bikes),'dans le périmètre sélectionné'],
+      ['STATIONS SANS VÉLO',display(qualified.empty),`${pct(qualified.emptyRate)} des stations qualifiées`],
+      ['STATIONS QUALIFIÉES',display(qualified.usable),`${display(qualified.stations)} stations dans le périmètre`],
+    ],
+    fiabilite:[
+      ['OBSERVATIONS EXPLOITABLES',display(m.usable),`${pct(m.observed?m.usable/m.observed:null)} des observations`],
+      ['OBSERVATIONS REJETÉES',display(m.unusable),'absence de signal exploitable'],
+      ['SIGNALEMENTS QUALITÉ',display(issues),'événements, pas stations distinctes'],
+      ['CAPTURES HISTORIQUES',display(m.capture_count),'dans cet export archivé'],
+    ],
+    previsions:[
+      ['HORIZON CIBLE','30 min','prévision par station à T + 30 min'],
+      ['STATUT DU MODÈLE','—','P5 non validé sur historique réel'],
+      ['HISTORIQUE MINIMUM','7 jours','900 captures et couverture suffisante exigées'],
+      ['SCORE PRÉDICTIF','—','aucune métrique réelle validée'],
+    ],
+  }[state.view];
+  const nodes=document.querySelectorAll('.metric');
+  values.forEach(([label,value,foot],i)=>{
+    nodes[i].querySelector('.metric-label').textContent=label;
+    nodes[i].querySelector('.metric-figure').textContent=value;
+    nodes[i].querySelector('.metric-foot').textContent=foot;
+  });
   const recent=captureFreshness(d.captured_at);
   const truth=document.querySelector('.truth');truth.classList.toggle('good',recent==='recent');
   $('freshness-label').textContent=recent==='recent'?'CAPTURE RÉCENTE':recent==='aging'?'ARCHIVE EN DIFFÉRÉ':'ARCHIVE ANCIENNE';
@@ -22,98 +50,130 @@ function paintStats() {
   $('top-capture').textContent=`ARCHIVE ${localTime(d.captured_at)}`;
   document.querySelector('.signal').classList.toggle('stale',recent==='stale');
 }
-
 function filtered() {
   return selectStations(state.stations,{query:state.query,filter:state.filter,sector:state.sector});
 }
-function geojson(stations) {
-  return {type:'FeatureCollection',features:stations.map(s=>({
-    type:'Feature',id:s.id,geometry:{type:'Point',coordinates:[s.lon,s.lat]},
-    properties:{id:s.id,condition:s.condition,selected:s.id===state.selected?1:0},
-  }))};
-}
 function repaintMap() {
-  const filteredStations=filtered();
-  $('map-count').textContent=`${display(filteredStations.length)} POINTS AFFICHÉS`;
-  if(state.mapReady && state.map?.getSource('stations')) {
-    state.map.getSource('stations').setData(geojson(filteredStations));
-  } else if(state.mapFailed){ fallbackMap(filteredStations); }
+  const stations=filtered();
+  const suffix=state.mapReady?'STATIONS GÉOLOCALISÉES':state.mapFailed?'STATIONS EN MODE DE SECOURS':'STATIONS À POSITIONNER';
+  $('map-count').textContent=`${display(stations.length)} ${suffix}`;
+  if(state.mapReady && state.map){
+    drawMapMarkers();
+  } else if(state.mapFailed){
+    fallbackMap(stations);
+  }
 }
 function fallbackMap(points) {
   $('map').hidden=true;
+  if(state.markerCanvas)state.markerCanvas.hidden=true;
   const surface=$('map-fallback');surface.hidden=false;
   const full=bounds(state.stations),pad=.05;
-  const west=full.west-(full.east-full.west)*pad,east=full.east+(full.east-full.west)*pad;
-  const south=full.south-(full.north-full.south)*pad,north=full.north+(full.north-full.south)*pad;
+  const west=full.west-(full.east-full.west)*pad,east=full.east+(full.west===full.east?0.01:full.east-full.west)*pad;
+  const south=full.south-(full.north-full.south)*pad,north=full.north+(full.south===full.north?0.01:full.north-full.south)*pad;
   surface.replaceChildren();
   const label=document.createElement('span');label.className='fallback-caption';
-  label.textContent='POSITION RÉELLE DES STATIONS · FOND DE CARTE INDISPONIBLE';surface.append(label);
+  label.textContent='COORDONNÉES VÉRIFIÉES · MODE DE SECOURS SANS TUILES';surface.append(label);
   const frag=document.createDocumentFragment();
-  for (const s of points) {
+  for(const station of points){
     const point=document.createElement('button');point.type='button';
-    point.className='fallback-point '+(s.condition==='available'?'':s.condition);
-    point.style.left=(100*(s.lon-west)/(east-west)).toFixed(3)+'%';
-    point.style.top=(100*(north-s.lat)/(north-south)).toFixed(3)+'%';
-    point.title=s.name;point.setAttribute('aria-label',s.name);
-    point.addEventListener('click',()=>selectStation(s.id));frag.append(point);
+    point.className='fallback-point '+(station.condition==='available'?'':station.condition);
+    point.style.left=(100*(station.lon-west)/(east-west)).toFixed(3)+'%';
+    point.style.top=(100*(north-station.lat)/(north-south)).toFixed(3)+'%';
+    point.title=station.name;point.setAttribute('aria-label','Inspecter '+station.name);
+    point.addEventListener('click',()=>selectStation(station.id));frag.append(point);
   }
   surface.append(frag);
 }
 function mapFallback() {
   if(state.mapFailed)return;
   state.mapFailed=true;
-  try{state.map?.remove()}catch(_){/* safe fallback */}
-  state.map=null;state.mapReady=false;fallbackMap(filtered());
+  try{state.map?.remove()}catch(_){/* safer than a blank map */}
+  state.map=null;state.mapReady=false;state.markerPositions=[];
+  fallbackMap(filtered());repaintMap();
+}
+function drawMapMarkers(){
+  if(!state.map||!state.mapReady)return;
+  try{
+    const container=$('map'),w=container.clientWidth,h=container.clientHeight;
+    if(w<=0||h<=0)return;
+    if(!state.markerCanvas){
+      const canvas=document.createElement('canvas');
+      canvas.id='station-overlay';canvas.className='station-overlay';
+      canvas.setAttribute('aria-hidden','true');container.parentElement.append(canvas);
+      state.markerCanvas=canvas;
+    }
+    const canvas=state.markerCanvas;
+    const pixelRatio=Math.min(window.devicePixelRatio||1,2);
+    canvas.width=Math.round(w*pixelRatio);canvas.height=Math.round(h*pixelRatio);
+    canvas.style.width=w+'px';canvas.style.height=h+'px';
+    const ctx=canvas.getContext('2d');
+    if(!ctx){mapFallback();return;}
+    ctx.setTransform(pixelRatio,0,0,pixelRatio,0,0);
+    ctx.clearRect(0,0,w,h);
+    const markers=layoutMapMarkers(filtered(),pos=>state.map.project(pos),
+      w,h,state.map.getZoom(),state.selected);
+    state.markerPositions=markers;
+    for(const p of markers){
+      const clustered=p.count>1;
+      const radius=p.selected?9:clustered?Math.min(17,8+Math.log2(p.count)*2):4.4;
+      const color=COLORS[p.condition];
+      ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
+      ctx.fillStyle=clustered?'#183a39':color;ctx.globalAlpha=.96;ctx.fill();
+      ctx.lineWidth=p.selected?2.7:clustered?1.5:1.25;
+      ctx.strokeStyle=p.selected?'#ffffff':clustered?'#a8edc7':'#031319';ctx.stroke();
+      if(clustered){
+        ctx.globalAlpha=1;ctx.fillStyle='#e9fff4';ctx.font='600 10px system-ui';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(String(p.count),p.x,p.y);
+      }
+    }
+    ctx.globalAlpha=1;
+    $('map-count').textContent=`${display(filtered().length)} STATIONS · ${display(markers.length)} REPÈRES`;
+  }catch(error){
+    console.warn('La superposition cartographique a échoué',error);
+    mapFallback();
+  }
 }
 function initMap() {
   const maplibre=window.maplibregl;
   if(!maplibre){mapFallback();return;}
-  try {
+  try{
     const map=new maplibre.Map({
       container:'map',style:'https://tiles.openfreemap.org/styles/dark',
       center:[2.348,48.856],zoom:11,attributionControl:false,pitchWithRotate:false,
       dragRotate:false,cooperativeGestures:false,
     });
     state.map=map;
-    map.addControl(new maplibre.NavigationControl({showCompass:false}), 'bottom-right');
+    map.addControl(new maplibre.NavigationControl({showCompass:false}),'bottom-right');
+    // Markers are drawn independently from MapLibre style sources and tiles.
+    // A working basemap no longer hides stations when a style layer fails.
     map.on('load',()=>{
       if(state.mapFailed)return;
       state.mapReady=true;
-      map.addSource('stations',{type:'geojson',data:geojson(filtered()),cluster:true,clusterRadius:29,clusterMaxZoom:13});
-      map.addLayer({id:'cluster-halo',type:'circle',source:'stations',filter:['has','point_count'],paint:{
-        'circle-radius':['step',['get','point_count'],18,25,23,100,29],
-        'circle-color':'#1b4140','circle-stroke-color':'#9be1bb','circle-stroke-width':1.1,'circle-opacity':.94,
-      }});
-      map.addLayer({id:'cluster-count',type:'symbol',source:'stations',filter:['has','point_count'],layout:{'text-field':['get','point_count_abbreviated'],'text-size':11},paint:{'text-color':'#e1f3e8'}});
-      map.addLayer({id:'station-circles',type:'circle',source:'stations',filter:['!', ['has','point_count']],paint:{
-        'circle-color':['match',['get','condition'],'available',COLORS.available,'empty',COLORS.empty,COLORS.unknown],
-        'circle-radius':['case',['==',['get','selected'],1],9,5],
-        'circle-stroke-color':['case',['==',['get','selected'],1],'#fff','#06161b'],
-        'circle-stroke-width':['case',['==',['get','selected'],1],2.5,1],
-        'circle-opacity':.92,
-      }});
-      map.on('click','cluster-halo',(evt)=>{
-        const feature=map.queryRenderedFeatures(evt.point,{layers:['cluster-halo']})[0];if(!feature)return;
-        map.getSource('stations').getClusterExpansionZoom(feature.properties.cluster_id,(error,zoom)=>{
-          if(!error)map.easeTo({center:feature.geometry.coordinates,zoom});
-        });
-      });
-      map.on('click','station-circles',evt=>{
-        const f=evt.features?.[0];if(f)selectStation(String(f.properties.id));
-      });
-      for (const layer of ['station-circles','cluster-halo']) {
-        map.on('mouseenter',layer,()=>{map.getCanvas().style.cursor='pointer'});
-        map.on('mouseleave',layer,()=>{map.getCanvas().style.cursor=''});
-      }
+      drawMapMarkers();
       repaintMap();
     });
-    map.on('error',event=>{
-      // A basemap outage does not invent geo data: fallback plots actual coordinates only.
-      if(!state.mapReady) mapFallback();
-      else console.warn('Fond cartographique indisponible :',event.error?.message||'erreur cartographique');
+    map.on('move',()=>{if(state.mapReady)drawMapMarkers()});
+    map.on('resize',()=>{if(state.mapReady)drawMapMarkers()});
+    map.on('click',evt=>{
+      if(!state.mapReady)return;
+      const p=pickMapMarker(state.markerPositions,evt.point.x,evt.point.y);
+      if(!p)return;
+      if(p.count>1){
+        map.easeTo({center:[p.lon,p.lat],zoom:Math.min(17,map.getZoom()+2),duration:550});
+      }else if(p.ids[0])selectStation(p.ids[0]);
     });
-    setTimeout(()=>{if(!state.mapReady&&!state.mapFailed)mapFallback()},12000);
-  }catch(err){console.warn('Map unavailable',err);mapFallback()}
+    map.on('mousemove',evt=>{
+      if(!state.mapReady)return;
+      const p=pickMapMarker(state.markerPositions,evt.point.x,evt.point.y);
+      map.getCanvas().style.cursor=p?'pointer':'grab';
+    });
+    map.on('error',event=>{
+      if(!state.mapReady)console.warn('Style en cours de chargement',event.error?.message||'erreur tuiles');
+    });
+    window.addEventListener('resize',()=>{if(state.mapReady){map.resize();drawMapMarkers()}});
+    setTimeout(()=>{if(!state.mapReady&&!state.mapFailed)mapFallback()},9000);
+  }catch(error){console.warn('MapLibre indisponible',error);mapFallback();}
 }
 function focusStation(station) {
   if(state.mapReady&&state.map) state.map.flyTo({center:[station.lon,station.lat],zoom:Math.max(state.map.getZoom(),14),essential:true});
@@ -121,15 +181,33 @@ function focusStation(station) {
 function selectStation(id) {
   const station=state.stations.find(s=>s.id===id);
   if(!station)return;
-  state.selected=station.id;state.view='reseau';state.sector='all';
-  updateNav();renderInspector();repaintMap();focusStation(station);
+  state.selected=station.id;state.view='reseau';state.sector='all';state.query='';state.filter='all';
+  document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
+  history.replaceState(null,'','#reseau');
+  updateNav();paintStats();renderInspector();repaintMap();focusStation(station);
 }
 function updateNav() {
-  for(const nav of document.querySelectorAll('.nav'))nav.classList.toggle('active',nav.dataset.view===state.view);
-  const views={reseau:['01 / 04','Disponibilité par station'],territoires:['02 / 04','Répartition géographique'],fiabilite:['03 / 04','Stations et qualité des mesures'],previsions:['04 / 04','Prévisions / en attente']};
-  document.querySelector('.index').textContent=views[state.view][0];
-  $('map-title').textContent=views[state.view][1];
+  for(const nav of document.querySelectorAll('.nav')){
+    const active=nav.dataset.view===state.view;
+    nav.classList.toggle('active',active);
+    nav.setAttribute('aria-current',active?'page':'false');
+  }
+  const views={
+    reseau:['01 / 04','Le pouls du réseau.','État observé du réseau à la dernière capture archivée','Disponibilité par station'],
+    territoires:['02 / 04','Lire le territoire.','Quatre secteurs analytiques, non administratifs','Répartition géographique'],
+    fiabilite:['03 / 04','La preuve par la donnée.','Mesures admissibles, anomalies et traçabilité','Stations et qualité des mesures'],
+    previsions:['04 / 04','Prédire, sans inventer.','Modèle +30 minutes en attente de validation','Prévisions / en attente'],
+  };
+  const [index,title,description,maptitle]=views[state.view];
+  document.querySelector('.index').textContent=index;
+  $('headline-title').innerHTML=html(title.slice(0,-1))+'<span class="period">.</span>';
+  $('headline-description').textContent=description;
+  $('map-title').textContent=maptitle;
+  document.querySelector('.workspace').dataset.view=state.view;
   $('panel-state').textContent=state.view==='previsions'?'NON VALIDÉ':state.view==='fiabilite'?'CONTRÔLE':state.view==='territoires'?'ANALYSE SPATIALE':'EXPLORATION';
+  $('timeline-heading').textContent=state.view==='fiabilite'?'Régularité de la collecte':
+    state.view==='territoires'?'Continuité du réseau':
+    state.view==='previsions'?'Historique requis pour P5':'Continuité des captures';
 }
 function statusChip(station){
   const category=station.condition;
@@ -168,11 +246,14 @@ function renderInspector(){
   if(state.view==='territoires'){
     const sections=sectorSummaries(state.stations);
     box.innerHTML=`<div class="side-section"><span class="station-kicker">ANALYSE SPATIALE / 04 SECTEURS</span><h3>Une autre lecture du territoire.</h3><p>Découpage analytique en quatre quadrants autour des médianes des coordonnées enregistrées. <strong>Ce ne sont pas des arrondissements administratifs.</strong></p><button class="territory-row ${state.sector==='all'?'selected':''}" data-sector="all"><span>Tout le réseau</span><strong>${display(state.stations.length)}</strong><small>STATIONS RÉFÉRENCÉES</small></button>${sections.map(s=>`<button class="territory-row ${state.sector===s.id?'selected':''}" data-sector="${s.id}"><span>${html(s.name)}</span><strong>${display(s.bikes)} <small>VÉLOS</small></strong><small>${display(s.stations)} stations · ${pct(s.emptyRate)} sans vélo (qualifiées)</small></button>`).join('')}</div>`;
-    box.querySelectorAll('[data-sector]').forEach(btn=>btn.onclick=()=>{state.sector=btn.dataset.sector;renderInspector();repaintMap()});return;
+    box.querySelectorAll('[data-sector]').forEach(btn=>btn.onclick=()=>{state.sector=btn.dataset.sector;renderInspector();paintStats();repaintMap();
+      const points=filtered();if(state.mapReady&&state.map&&points.length){
+        const bb=bounds(points);state.map.fitBounds([[bb.west,bb.south],[bb.east,bb.north]],{padding:42,maxZoom:13,duration:450});
+      }});return;
   }
   if(state.view==='fiabilite'){
     const m=state.dataset.metrics;
-    box.innerHTML=`<div class="side-section"><span class="station-kicker">QUALITÉ / DERNIÈRE CAPTURE</span><h3>Une mesure, pas une promesse.</h3><p>${display(m.usable)} stations qualifiées sur ${display(m.observed)} observations au dernier instant. Les anomalies ci-dessous sont des <strong>signalements de qualité</strong>, pas nécessairement des stations uniques.</p><span class="station-kicker">SIGNALEMENTS PAR CATÉGORIE</span>${state.dataset.issues.length?state.dataset.issues.map(x=>`<div class="quality-row"><span>${html(x.code.replaceAll('_',' '))}</span><strong>${display(x.count)}</strong></div>`).join(''):'<div class="quality-row"><span>Aucun signalement enregistré</span></div>'}<p>Une capture ancienne ne décrit jamais la disponibilité actuelle des vélos.</p></div>`;return;
+    box.innerHTML=`<div class="side-section"><span class="station-kicker">QUALITÉ / DERNIÈRE CAPTURE</span><h3>Une mesure, pas une promesse.</h3><p>${display(m.usable)} stations qualifiées sur ${display(m.observed)} observations au dernier instant. Les anomalies ci-dessous sont des <strong>signalements de qualité</strong>, pas nécessairement des stations uniques.</p><span class="station-kicker">SIGNALEMENTS PAR CATÉGORIE</span>${state.dataset.issues.length?state.dataset.issues.map(x=>`<div class="quality-row"><span>${html(issueLabel(x.code))}</span><strong>${display(x.count)}</strong></div>`).join(''):'<div class="quality-row"><span>Aucun signalement enregistré</span></div>'}<p>Une capture ancienne ne décrit jamais la disponibilité actuelle des vélos.</p></div>`;return;
   }
   if(state.view==='previsions'){
     box.innerHTML='<div class="side-section"><span class="station-kicker">P5 / INTELLIGENCE PRÉDICTIVE</span><div class="p5-icon" aria-hidden="true">◇</div><span class="solid-tag">PRÉVISION NON DISPONIBLE</span><h3>La fiabilité avant la prédiction.</h3><p>Le modèle à +30 minutes est développé, mais il attend un historique réel suffisant et une validation chronologique indépendante. Aucune prévision ni score de performance n’est affiché avant cette validation.</p><div class="detail-meta"><span>Horizon visé</span><strong>+30 minutes</strong></div><div class="detail-meta"><span>Évaluation</span><strong>Baseline vs modèle</strong></div><div class="detail-meta"><span>Statut</span><strong>Non validé</strong></div></div>';
@@ -206,10 +287,12 @@ function renderTimeline() {
   const missing=gaps.filter(x=>x>20).length;
   $('timeline-explain').textContent=missing?`${missing} interruption(s) de plus de 20 min : courbe volontairement discontinue.`:'Points réels, reliés seulement si l’écart ne dépasse pas 20 min.';
 }
-function renderAll(){paintStats();updateNav();renderInspector();renderTimeline();repaintMap();}
+function renderAll(){updateNav();paintStats();renderInspector();renderTimeline();repaintMap();}
 function activateView(view){
   if(!['reseau','territoires','fiabilite','previsions'].includes(view))return;
-  state.view=view;state.selected=null;state.sector='all';updateNav();renderInspector();repaintMap();
+  state.view=view;state.selected=null;state.sector='all';state.query='';state.filter='all';
+  document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
+  updateNav();paintStats();renderInspector();renderTimeline();repaintMap();
 }
 async function refresh(){
   try {
@@ -239,3 +322,7 @@ for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener(
 $('reload').addEventListener('click',refresh);
 const hash=location.hash.slice(1);if(['reseau','territoires','fiabilite','previsions'].includes(hash))state.view=hash;
 refresh();
+window.addEventListener('hashchange',()=>{
+  const requested=location.hash.slice(1);
+  if(['reseau','territoires','fiabilite','previsions'].includes(requested))activateView(requested);
+});

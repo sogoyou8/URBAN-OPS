@@ -61,3 +61,12 @@ La commande `sync-p6.ps1` télécharge le dernier dataset GitHub vers `web/data/
 - Le déclencheur Cloudflare / GitHub P3.5 continue d'accumuler les snapshots; il est distinct du build P6.
 
 **Source** : Vélib' Métropole open data, ODbL, non affilié à l'opérateur.
+## P6.6 — Recette corrective après captures utilisateur (20/10/2026)
+
+- **P6.6-A** : sur certains navigateurs, le fond OpenFreeMap s'affichait mais les 1 517 marqueurs GeoJSON n'étaient pas visibles. La couche de repères est maintenant un **canvas géographique indépendant des sources/layers du style MapLibre**, projetant les coordonnées des stations réelles (regroupement pour éviter la surcharge à faible zoom, clic station et zoom sur regroupement). Le compteur annonce les repères effectivement tracés. Si MapLibre/son style n'est pas disponible, les coordonnées restent navigables via boutons du mode de secours.
+- **P6.6-B** : pour desktop >= 861 px, la mise en page est contrainte à `100dvh` : titre, quatre KPI, carte / inspection, mini-historique et pied de page. L'inspecteur défile localement. Tablettes/mobiles conservent le défilement vertical normal.
+- **P6.6-C** : contraste des libellés secondaires accru; couche de points au-dessus du fond, légende et filtres au-dessus des points; davantage de distinction des états de disponibilité.
+- **P6.6-D** : titres, sous-titres et 4 KPI propres aux vues Réseau, Territoires, Fiabilité et Prévisions. Les 4 zones géographiques restent des **quadrants d'analyse, jamais des arrondissements**. Les catégories qualité ont des libellés français compréhensibles. Les prévisions P5 restent **indisponibles**, sans faux score.
+- **P6.6-E** : tests Node des coordonnées/agrégations/sélections, plus test Chromium de l'interface en mode offline simulé (desktop 1440×900, laptop 1024×768 et mobile 390×844, affichage canvas malgré absence de styles externes, navigation et interactions, secours sans MapLibre). La fixture du navigateur est **synthétique et non publiée**. Les mesures Vélib' réelles restent vérifiées séparément par le job `real-export`.
+
+**Limites non dissimulées** : le test CI du navigateur simule le moteur cartographique et ne prouve pas l'affichage externe OpenFreeMap sur le PC Windows. L'utilisateur doit recharger son application locale via Git + synchronisation P6 et confirmer les points, la fluidité, les différentes vues et l'absence de défilement global. Aucun nouveau déploiement Vercel, Workers, R2, Railway ou abonnement.

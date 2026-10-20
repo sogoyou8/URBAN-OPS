@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds} from './core.js';
+import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,issueLabel} from './core.js';
 const stations=[
  {id:'1',name:'A & <B>',code:'001',lat:48.8,lon:2.2,usable:true,condition:'available',bikes:5,docks:5},
  {id:'2',name:'Deux',code:'002',lat:48.9,lon:2.4,usable:true,condition:'empty',bikes:0,docks:10},
@@ -35,4 +35,23 @@ test('public station labels must be escaped and age labeled',()=>{
  assert.equal(html('<img src=x onerror="x">'), '&lt;img src=x onerror=&quot;x&quot;&gt;');
  assert.equal(captureFreshness('2026-10-20T10:58:00Z',Date.parse('2026-10-20T11:00:00Z')),'recent');
  assert.equal(relativeAge('2026-10-20T10:00:00Z',Date.parse('2026-10-20T11:00:00Z')),'1 h 0 min');
+});
+test('map overlay projects real coordinates independently from style layers',()=>{
+ const pts=layoutMapMarkers(stations, ([lon,lat])=>({x:lon*100,y:lat*10}),600,600,15,'1');
+ assert.equal(pts.length,3);
+ assert.equal(pts.find(p=>p.ids.includes('1')).selected,true);
+ assert.equal(pickMapMarker(pts,220,488).ids[0],'1');
+ assert.equal(layoutMapMarkers(stations,()=>({x:Infinity,y:0}),600,600).length,0);
+});
+test('clusters at overview zoom and zooming retains real station ids',()=>{
+ const dense=[
+   {...stations[0],id:'a',lon:2.301,lat:48.85},
+   {...stations[0],id:'b',lon:2.302,lat:48.85},
+   {...stations[0],id:'c',lon:2.303,lat:48.85},
+ ];
+ const projected=layoutMapMarkers(dense, ([lon,lat])=>({x:lon*100,y:lat*10}),600,600,11);
+ assert.equal(projected.length,1);
+ assert.equal(projected[0].count,3);
+ assert.deepEqual(projected[0].ids,['a','b','c']);
+ assert.equal(issueLabel('stale_station_report'),'Signal station trop ancien');
 });
