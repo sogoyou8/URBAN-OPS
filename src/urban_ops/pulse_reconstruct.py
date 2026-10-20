@@ -92,6 +92,7 @@ def reconstruct_replays(paths: list[Path], output_dir: Path, *,
         "nominal_5m_coverage": 0.0,
         "first_sample_utc": None, "last_sample_utc": None,
         "distinct_stations_seen": 0,
+        "station_removal_events": 0,
     }
     unique_codes = set()
     last_at = None
@@ -175,11 +176,22 @@ def reconstruct_replays(paths: list[Path], output_dir: Path, *,
                 for frame in root["frames"]:
                     for row in frame["changes"]:
                         s = _station(row, baseline=False)
-                        state[s["station_code"]] = (
-                            s["mechanical_bikes"], s["electric_bikes"],
-                            s["num_docks_available"], s["operational_flag"],
-                        )
-                        unique_codes.add(s["station_code"])
+                        code = s["station_code"]
+                        # Pulse's live-update.ts encodes a station *removal*
+                        # as an all-zero change. It is not an idle station.
+                        # Never forward-fill a removed station into 5m outputs.
+                        if (s["mechanical_bikes"] == 0
+                            and s["electric_bikes"] == 0
+                            and s["num_docks_available"] == 0
+                            and s["operational_flag"] == 0):
+                            state.pop(code, None)
+                            audit["station_removal_events"] += 1
+                        else:
+                            state[code] = (
+                                s["mechanical_bikes"], s["electric_bikes"],
+                                s["num_docks_available"], s["operational_flag"],
+                            )
+                            unique_codes.add(code)
                     process(frame["observedAt"], frame["sourceUpdatedAt"])
             flush(writer)
         audit["distinct_stations_seen"] = len(unique_codes)
