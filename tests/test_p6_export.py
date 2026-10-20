@@ -16,7 +16,7 @@ def create_db(path):
     CREATE TABLE fact_station_status (station_id INT, run_id TEXT, collected_at TEXT, station_reported_at TEXT,
         num_bikes_available INT, num_docks_available INT, mechanical_bikes INT, electric_bikes INT,
         reported_lag_seconds INT, is_usable INT, is_installed INT, is_renting INT, is_returning INT);
-    CREATE TABLE data_quality_issues (run_id TEXT,issue_code TEXT);
+    CREATE TABLE data_quality_issues (run_id TEXT,station_id INT,issue_code TEXT,severity TEXT);
     ''')
     db.executemany('INSERT INTO dim_stations VALUES (?,?,?,?,?,?)',[
         (1,'001','A & <B>',48.85,2.34,20), (2,'002','Without observation',48.86,2.35,12),
@@ -33,7 +33,7 @@ def create_db(path):
         (1,'b','2026-10-20T08:45:00+00:00','2026-10-20T08:44:00+00:00',0,20,0,0,60,1,1,1,1),
         (3,'b','2026-10-20T08:45:00+00:00',None,99,0,90,9,None,0,0,0,0),
     ])
-    db.execute("INSERT INTO data_quality_issues VALUES ('b','stale_station_report')")
+    db.execute("INSERT INTO data_quality_issues VALUES ('b',3,'stale_station_report','warning')")
     db.commit();db.close()
 
 
@@ -56,6 +56,14 @@ def test_snapshot_is_one_latest_run_without_mixing_ages(tmp_path):
     assert c['condition']=='unknown' and c['bikes'] is None and c['lag_seconds'] is None
     assert d['forecast']['status']=='unavailable'
     assert d['issues']==[{'code':'stale_station_report','count':1}]
+    assert d['quality_diagnostics']=={
+        'not_observed':1, 'observed_but_unusable':1,
+        'observed_non_operational':1, 'stations_with_multiple_issue_events':0,
+        'limitation':'Issue events overlap; an issue count is not a distinct station count.'
+    }
+    assert d['stations'][2]['issues']==[{'code':'stale_station_report','severity':'warning'}]
+    assert d['stations'][1]['issues']==[]
+    assert d['p5_readiness']['status']=='unavailable'
     assert d['history'][1]['gap_minutes']==45 and not d['history'][1]['connected_to_previous']
 
 
@@ -66,3 +74,24 @@ def test_history_limit_and_no_stations(tmp_path):
     with sqlite3.connect(p) as db:db.execute('DELETE FROM dim_stations');db.commit()
     with pytest.raises(ValueError,match='Missing real station'):
         export('sqlite:///'+str(p))
+def test_readiness_is_only_repository_filename_inventory(tmp_path):
+    import json
+    from scripts.export_p6 import main
+    p=tmp_path/'capture.sqlite';create_db(p)
+    f=tmp_path/'inventory.json'
+    d={"source":"GitHub Release asset names (not P3 revalidated content)",
+       "readiness":{"ready":False,"captures":13,"span_days":0.2,
+                    "coverage_estimate":0.3,"reason":"insufficient_calendar_span",
+                    "from_utc":"2026-10-20T01:00:00+00:00",
+                    "through_utc":"2026-10-20T05:00:00+00:00"}}
+    f.write_text(json.dumps(d),encoding='utf-8')
+    out=tmp_path/'network.json'
+    main(['--db-url','sqlite:///'+str(p),'--output',str(out),'--p5-inventory',str(f)])
+    x=json.loads(out.read_text(encoding='utf-8'))
+    assert x['p5_readiness']['status']=='insufficient_history'
+    assert x['p5_readiness']['captures']==13
+    assert 'NOT checksum' in x['p5_readiness']['limitation']
+    d['source']='fabricated certainty'
+    f.write_text(json.dumps(d),encoding='utf-8')
+    with pytest.raises(ValueError,match='Unverified P5 inventory'):
+        main(['--db-url','sqlite:///'+str(p),'--output',str(out),'--p5-inventory',str(f)])
