@@ -71,3 +71,58 @@ P3 vérifiées, selon les seuils de `docs/P5_MACHINE_LEARNING.md`.
 4. Continuer indépendamment l'audit de régularité des captures officielles P3.
 
 Aucune ressource payante ou tâche planifiée n'est activée ici.
+
+
+## Reconstruction de fenêtres successives — P5.3 (préparation)
+
+Dès que les fichiers sont reçus avec l'accord du propriétaire du service :
+
+```bash
+python -m scripts.reconstruct_pulse_replay \
+  --output data/pulse-seven-days-audit \
+  data/authorized-replays/*.json
+```
+
+La commande prend des fichiers **locaux uniquement**, valide intégralement les
+chaînes `baseline` + `frames`, trie les fenêtres par horodatage UTC réel,
+reconstruit à chaque événement l'état connu de l'ensemble du réseau, puis
+sélectionne le **dernier état réellement horodaté de chaque tranche UTC de
+5 minutes**. Il n'y a pas de création de nouveaux instants, et les lacunes
+restent visibles.
+
+Fichiers livrés :
+- `pulse_network_5m.csv` : état de chaque station à chacun des instants
+  sélectionnés, y compris les stations dont les compteurs n'ont pas changé
+  depuis la baseline, avec l'horodatage réel et les SHA-256 du fichier source ;
+- `pulse_network_audit.json` : nombre d'états réseau, stations distinctes,
+  couverture indicative des tranches de cinq minutes, durée maximale sans
+  nouvelle capture, interruptions de plus de dix minutes, chevauchements
+  ignorés, inventaire des fichiers sources et preuve de **non-qualification P5**.
+
+Les collisions avec **même timestamp mais état divergent** sont rejetées.
+Dans les périodes qui se chevauchent, le premier rejeu conserve ses observations
+et le second repart de sa baseline avant le premier instant plus récent.
+Le nombre de chevauchements est exposé : ils ne sont jamais cachés.
+Une fenêtre inutilisable bloque l'export entier. Les sorties existantes
+ne sont pas écrasées.
+
+### Vérification obligatoire avant P5
+
+- Les 168 appels sont un nombre **théorique** pour sept jours à raison
+  d'une heure par fenêtre, non un processus de récupération activé.
+- Les sept jours de conservation étant une fenêtre glissante, un historique
+  réellement téléchargeable peut avoir une amplitude légèrement inférieure
+  à sept jours révolus. **Ne pas réduire artificiellement le seuil P5** :
+  examiner la combinaison avec les captures officielles déjà archivées,
+  toujours sous provenance et qualification de source.
+- Vérifier l'intégralité des fenêtres, l'alignement des codes avec la dimension
+  officielle, la fraîcheur et les bornes des compteurs par capacité.
+- Un état réseau reconstitué ne fournit pas nécessairement une nouvelle
+  observation propre à chaque station, et `operational_flag` ne prouve pas
+  les trois indicateurs GBFS. Une adaptation et une évaluation de qualité
+  **spécifiques à Pulse** sont nécessaires avant d'utiliser les données
+  dans un backtest. L'importeur ne lance **aucun entraînement**.
+
+**Aucun scraping de session, Turnstile ou contournement des limites du site
+n'est fourni.** La demande d'export GitHub #4 reste en attente ; ce module
+accepte des fichiers reçus ou récupérés avec autorisation.
