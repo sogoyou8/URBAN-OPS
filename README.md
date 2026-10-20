@@ -171,6 +171,10 @@ Pour respecter la contrainte **strictement sans carte ni abonnement payant**, ut
 Prévision **des vélos disponibles à chaque station dans 30 minutes**, avec historique P3 vérifié, baseline de persistance, modèle de gradient boosting, séparation temporelle avec purge anti-fuite et mesure MAE/RMSE sur données futures. **Aucune métrique réelle n’est annoncée tant que nous n’avons pas au moins sept jours, 900 captures et une couverture suffisante.** Le workflow GitHub `P5 real-data 30-minute forecasting` exécute d’abord cette vérification, puis entraîne uniquement si les archives sont suffisantes. Voir [P5 — Machine Learning](docs/P5_MACHINE_LEARNING.md). Aucune infrastructure payante nouvelle.
 
 
+## P5.2 — Réponses Vélib’ Pulse, import hors ligne uniquement
+
+L’adaptateur `scripts/import_pulse_replay.py` valide les fichiers `/api/replay` **déjà obtenus avec autorisation** et publie un CSV d’événements *sparse* avec SHA-256 et manifeste. Aucun téléchargement réseau, aucune extraction massive ni injection en P3/P5 : les champs de qualité requis n’y figurent pas tous. Voir [la procédure P5.2](docs/P5_PULSE_REPLAY_IMPORT.md).
+
 ## P6 — Cockpit Web Urban Ops
 
 Un cockpit géographique statique dans `web/` présente les **capturations réelles P3 archivées**, la qualité, les vélos qualifiés et les quatre quadrants analytiques. Filtrage, recherche et inspection des stations; courbe discontinue en cas de trous; **P5 est bloqué** tant que la validation réelle est insuffisante. `scripts/export_p6.py` fabrique `web/data/network.json` depuis les archives SQL restaurées; `scripts/sync-p6.ps1` récupère le dernier artifact P6 sur GitHub dans **le même dossier local UrbanOps**. Le workflow `P6 Urban Ops cockpit — checks and verified real snapshot` publie des artefacts sur GitHub Actions, **sans déploiement ni paiement**. [Guide P6](docs/P6_COCKPIT.md).
