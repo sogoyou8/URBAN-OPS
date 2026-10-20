@@ -66,7 +66,7 @@ $previous = $null
 $oldHashes = @{}
 if (Test-Path -LiteralPath $statePath) {
     $previous = Get-Content -LiteralPath $statePath -Raw -Encoding UTF8 | ConvertFrom-Json
-    if ($previous.schema -ne 1) { throw 'Format de l’état local inconnu. Vérifie .urbanops-local/sync-state.json.' }
+    if ($previous.schema -ne 1) { throw 'Format de cet etat local inconnu. Vérifie .urbanops-local/sync-state.json.' }
     foreach ($item in $previous.files.PSObject.Properties) { $oldHashes[$item.Name] = [string]$item.Value }
 }
 
@@ -179,7 +179,7 @@ try {
     if ($conflicts.Count -gt 0 -and !$BackupAndReplace) {
         throw ("Modifications locales ou fichiers non gérés détectés (" + $conflicts.Count + ") : " +
             (($conflicts | Select-Object -First 5) -join ', ') +
-            '. Rien n’a été écrasé. Pour conserver une sauvegarde et remplacer volontairement : relancer avec -BackupAndReplace.')
+            '. Rien n a été écrasé. Pour conserver une sauvegarde et remplacer volontairement : relancer avec -BackupAndReplace.')
     }
     if ($conflicts.Count -gt 0 -and $BackupAndReplace) {
         $backupStage = Join-Path $temporary 'previous-files'
