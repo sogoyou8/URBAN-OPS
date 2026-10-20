@@ -30,6 +30,8 @@ jobs:
         run: |
           node --check cloudflare/src/collector.mjs
           node --test cloudflare/test/collector.test.mjs
+          node --check cloudflare/free-trigger/src/dispatcher.mjs
+          node --test cloudflare/free-trigger/test/dispatcher.test.mjs
       - name: Offline conversion and existing P3 archive interoperability
         run: python -m unittest discover -s tests -p test_cloudflare_import.py -v
       # Deliberately NO wrangler deploy, R2 activation or Cloudflare credentials.

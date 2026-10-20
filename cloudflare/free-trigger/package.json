@@ -1,0 +1,13 @@
+{
+  "private": true,
+  "name": "urban-ops-cloudflare-free-dispatcher",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/dispatcher.test.mjs",
+    "check": "node --check src/dispatcher.mjs && node --test test/dispatcher.test.mjs"
+  },
+  "devDependencies": {
+    "wrangler": "^4.139.0"
+  }
+}

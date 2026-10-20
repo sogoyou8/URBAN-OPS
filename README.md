@@ -160,3 +160,7 @@ La collecte GitHub Actions est **best effort** ; deux captures espacées de plus
 ## P3.5 — Cloudflare : code préparé, **non déployé**
 
 Un Worker Cron (toutes les 5 minutes dans la configuration) et un archivage R2 Standard sont prêts et testés hors ligne, avec un convertisseur vers le replay Bronze/Silver/Gold existant. **Aucun bucket, abonnement ou déploiement Cloudflare n'a été créé.** R2 requiert une souscription et peut générer des frais au-delà des quotas gratuits; l'activation devra être explicitement approuvée. Voir [guide Cloudflare](docs/P35_CLOUDFLARE_PREPARATION.md).
+
+## P3.5 — Chemin gratuit sans abonnement R2
+
+Pour respecter la contrainte **strictement sans carte ni abonnement payant**, utiliser le [déclencheur Cloudflare Workers Free vers GitHub Actions](docs/P35_FREE_WORKER_GITHUB.md). Il ne contient aucune liaison R2 et ne déploie rien automatiquement : le programme est livré et testé, l'activation nécessite la configuration personnelle d'un jeton GitHub limité. Les captures demeurent des archives GitHub Releases. L'ancien prototype R2 reste non déployé.

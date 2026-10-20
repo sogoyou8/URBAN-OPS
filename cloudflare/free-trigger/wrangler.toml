@@ -1,0 +1,9 @@
+# WORKERS FREE PLAN ONLY; NO R2, D1, KV OR BILLABLE BINDINGS.
+# Configure GITHUB_DISPATCH_TOKEN as a Cloudflare encrypted secret before enabling Cron.
+name = "urban-ops-free-dispatcher"
+main = "src/dispatcher.mjs"
+compatibility_date = "2026-10-20"
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
