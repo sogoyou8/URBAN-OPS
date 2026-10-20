@@ -4,18 +4,14 @@
 
 Urban Ops possède **déjà** un collecteur officiel GBFS qui capte le réseau entier
 et archive les JSON bruts dans GitHub Releases (P3). Ce composant n'est **pas**
-un second collecteur. Il reçoit uniquement des réponses `/api/replay` déjà
-obtenues de manière autorisée : il ne contient **aucun accès réseau**, aucune
-session automatique, aucun contournement Turnstile ni rafale de requêtes.
+un second collecteur. Le module d'import traite hors ligne les fichiers déjà obtenus. Un collecteur optionnel, décrit ci-dessous, utilise le navigateur avec vérification humaine, sans contourner Turnstile.
 
 Référence de format (projet tiers) :
 - https://github.com/angristan/velib/blob/main/src/worker/domain.ts
 - https://github.com/angristan/velib/blob/main/src/worker/replay.ts
 - https://github.com/angristan/velib/blob/main/docs/architecture.md
 
-Le [ticket d'export](https://github.com/angristan/velib/issues/4) demeure
-la voie privilégiée pour l'historique massif. Ne pas lancer 168 appels au
-service tiers sans accord et sans politique explicite de débit.
+Le [ticket d'export](https://github.com/angristan/velib/issues/4) demeure une voie à faible charge pour l'historique massif. Une session valide ne donne pas de permission illimitée : consulter les règles du fournisseur et respecter ses restrictions.
 
 ## Utilisation (fichiers préalablement autorisés)
 
@@ -75,7 +71,7 @@ Aucune ressource payante ou tâche planifiée n'est activée ici.
 
 ## Reconstruction de fenêtres successives — P5.3 (préparation)
 
-Dès que les fichiers sont reçus avec l'accord du propriétaire du service :
+Une fois des fichiers rejoués disponibles localement :
 
 ```bash
 python -m scripts.reconstruct_pulse_replay \
@@ -128,100 +124,71 @@ n'est fourni.** La demande d'export GitHub #4 reste en attente ; ce module
 accepte des fichiers reçus ou récupérés avec autorisation.
 
 
-## Acquisition automatisée multi-fenêtres (P5.3, **non exécutée**)
+## Récupération séquentielle en une commande — P5.3
 
-Le téléchargement manuel station par station ou heure par heure est abandonné.
-La source est l'endpoint réseau déjà vérifié : une fenêtre d'une heure
-contient la **baseline de toutes les stations** et les **changements**
-de la période. 168 fenêtres sont nécessaires **au maximum en théorie**
-pour couvrir sept jours avec des fenêtres d'une heure.
+Le collecteur évite le téléchargement manuel heure par heure : il prépare
+jusqu'à 168 fenêtres réseau de 60 minutes et les récupère chronologiquement,
+une par une. Il ne télécharge jamais chaque station séparément.
 
-**Prérequis obligatoire** : le propriétaire du service doit autoriser le
-volume de requêtes et indiquer une cadence acceptable. La demande est
-documentée dans https://github.com/angristan/velib/issues/4 .
-Ne pas déduire une autorisation des quatre lectures manuelles déjà réalisées.
+### Prérequis et sécurité
 
-### Installation locale (une fois)
+- Revoir les conditions d'utilisation de Vélib’ Pulse avant d'entreprendre
+  un téléchargement volumineux. La validation de session n'est pas une
+  autorisation générale d'extraction massive. L'issue de demande d'export
+  https://github.com/angristan/velib/issues/4 demeure ouverte.
+- Vérifier la session dans Chromium visible ; aucun cookie n'est copié
+  manuellement ni sauvegardé. Aucune résolution automatisée de Turnstile.
+- Le téléchargement n'est **jamais** lancé par défaut ; seul \`--run\` le démarre.
+  Le drapeau artificiel \`--owner-approved\` a été supprimé : son absence
+  ne modifie pas les droits d'accès ni les règles du fournisseur.
+- Une requête à la fois, attente de **60 secondes par défaut** et **30
+  secondes minimum** ; aucune rafale parallèle ni réessai automatique après
+  un HTTP 403/429. Ces durées sont des choix de prudence internes, pas
+  un débit validé par le propriétaire du service.
 
-Depuis le dossier du dépôt Urban Ops :
+### Installation (une fois)
 
-\`\`\`bash
-python -m pip install -e ".[pulse]"
-python -m playwright install chromium
+\`\`\`powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[pulse]"
+.\.venv\Scripts\python.exe -m playwright install chromium
 \`\`\`
 
-Le navigateur Chromium piloté par Playwright est **visible**. Le programme
-ne résout pas Turnstile automatiquement : l'utilisateur doit vérifier
-normalement sa session dans la fenêtre du site. Le navigateur est éphémère,
-et aucun cookie ni token ne sont écrit sur le disque.
+### Prévisualiser sans accéder au service
 
-### Prévisualiser le plan sans aucun accès réseau
-
-\`\`\`bash
-python -m scripts.collect_pulse_replay_batch --output data/pulse-batch-001 --hours 168
+\`\`\`powershell
+.\.venv\Scripts\python.exe -m scripts.collect_pulse_replay_batch --output data/pulse-batch --hours 168
 \`\`\`
 
-Cette commande crée un manifeste local avec une ancre horaire UTC fixe,
-les bornes estimées, et zéro fichier collecté. Comme la fenêtre de rétention
-est **glissante**, ne préparer le plan définitif que lorsque l'accord
-est obtenu et la collecte prête à démarrer. Si l'ancre devient périmée,
-créer un **nouveau dossier**, sans supprimer les archives déjà reçues.
+Cette commande crée un plan local, sans accès réseau. L'ancre UTC est fixée
+au moment de la création : il faut démarrer rapidement car la conservation
+des minutes est **glissante sur sept jours**. Pour recommencer à une
+autre date, utiliser un nouveau dossier ; ne pas tenter de remplacer
+les fichiers archivés.
 
-### Exécuter **seulement après autorisation**
+### Lancer explicitement
 
-\`\`\`bash
-python -m scripts.collect_pulse_replay_batch \
-  --output data/pulse-batch-001 \
-  --hours 168 \
-  --run --owner-approved --interval-seconds N
+\`\`\`powershell
+.\.venv\Scripts\python.exe -m scripts.collect_pulse_replay_batch --output data/pulse-batch --hours 168 --run --interval-seconds 60
 \`\`\`
 
-Remplacer **N** par le délai (en secondes) accepté par le responsable
-de l'API. Il n'existe **aucune cadence présumée autorisée**. La borne
-technique minimale du programme est de cinq secondes, mais ce n'est
-**pas** une recommandation d'utilisation du serveur. La commande est
-inopérante sans les options explicites \`--run\`, \`--owner-approved\`
-et \`--interval-seconds\`.
+Après la vérification de session, les réponses sont validées avant
+enregistrement dans \`data/pulse-batch\`, puis suivies dans
+\`pulse_batch_manifest.json\` avec empreintes SHA-256. Relancer exactement
+la même commande dans le même dossier vérifie les fichiers présents et
+reprend les fenêtres encore manquantes.
 
-La session vérifiée dans la fenêtre du navigateur est partagée avec les
-requêtes HTTP de cette même session. La collecte reste **séquentielle** :
-jamais de parallélisme, jamais d'accès à l'historique station par station.
-Les périodes les plus anciennes sont récupérées **en premier** afin de
-réduire le risque de rétention glissante.
+Le collecteur s'arrête sans recommencer automatiquement si le serveur
+refuse l'accès (401/403), limite le débit (429) ou signale une autre erreur.
+Il s'arrête également sur JSON invalide et sur données sorties de la plage
+de rétention. Les données correctement téléchargées sont conservées.
 
-Chaque requête réussie produit \`replay-at-<unix>.json\` validé avant
-l'enregistrement, et ajoute une entrée au
-\`pulse_batch_manifest.json\` avec son SHA-256, ses dates et ses compteurs.
-En cas d'arrêt, la même commande dans le même dossier vérifie les fichiers
-existants, puis ne demande que les fenêtres manquantes. Elle ne recharge
-pas les fichiers présents ou ne remplace pas silencieusement des fichiers
-altérés.
+### Reconstruire et auditer avant P5
 
-**Arrêts immédiats** : accès refusé ou session invalide (401/403),
-limitation 429 avec \`Retry-After\` communiqué sans réessai automatique,
-autre code HTTP, JSON invalide, horodatage anormal, retour historique
-hors des sept jours. Une erreur n'efface jamais les JSON déjà validés.
-Il est interdit de contourner les protections du fournisseur.
-
-### Audit avant toute qualification P5
-
-Après collecte autorisée et uniquement pour les fichiers existants :
-
-\`\`\`bash
-python -m scripts.reconstruct_pulse_replay \
-  --output data/pulse-batch-audit \
-  data/pulse-batch-001/replay-at-*.json
+\`\`\`powershell
+.\.venv\Scripts\python.exe -m scripts.reconstruct_pulse_replay --output data/pulse-audit data/pulse-batch/replay-at-*.json
 \`\`\`
 
-Le reconstructeur reconnaît les suppressions de stations encodées
-par \`m=e=d=o=0\` dans les **frames** de Pulse. Les états initiaux
-(\`baseline\`) entièrement nuls ne sont **pas** automatiquement assimilés
-à des suppressions. Cette correction évite de continuer à afficher une
-station absente pendant les fenêtres suivantes.
-
-Examiner le manifeste, les stations distinctes, la fraîcheur,
-les trous, les chevauchements et la couverture par créneau de cinq minutes.
-Les fichiers reconstitués demeurent de provenance
-\`velib-pulse-unofficial\`, \`training_qualified=false\`.
-Aucune écriture automatique dans P3 ni entraînement P5 : une qualification
-explicite de la source est requise.
+Le reconstructeur retire les stations signalées supprimées par un changement
+compact \`m=e=d=o=0\`, sans prolonger artificiellement leur présence.
+L'export affiche la provenance, la couverture, les trous et les anomalies ;
+**il n'entraîne pas P5 et ne modifie pas les observations P3**.
