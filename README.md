@@ -173,7 +173,7 @@ Prévision **des vélos disponibles à chaque station dans 30 minutes**, avec hi
 
 ## P5.2 — Réponses Vélib’ Pulse, import hors ligne uniquement
 
-L’adaptateur `scripts/import_pulse_replay.py` valide les fichiers `/api/replay` **déjà obtenus avec autorisation** et publie un CSV d’événements *sparse* avec SHA-256 et manifeste. Aucun téléchargement réseau, aucune extraction massive ni injection en P3/P5 : les champs de qualité requis n’y figurent pas tous. Voir [la procédure P5.2](docs/P5_PULSE_REPLAY_IMPORT.md).
+L’adaptateur `scripts/import_pulse_replay.py` valide les fichiers `/api/replay` et publie un CSV d’événements *sparse* avec SHA-256 et manifeste. `scripts/reconstruct_pulse_replay.py` reconstitue l’état réseau et les trous à cinq minutes, en tenant compte des stations supprimées. Pour éviter tout téléchargement manuel heure par heure, `scripts/collect_pulse_replay_batch.py` prépare une récupération **séquentielle et reprenable** des fenêtres réseau avec navigateur visible, session vérifiée humainement, et arrêts sûrs sur 403/429. **Le téléchargement massif est désactivé tant que le propriétaire du service n’a pas approuvé le volume et la cadence ; il n’a pas été exécuté.** Aucune injection en P3/P5 ni entraînement automatique. Voir [le guide P5.2–P5.3](docs/P5_PULSE_REPLAY_IMPORT.md).
 
 ## P6 — Cockpit Web Urban Ops
 
