@@ -118,7 +118,7 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),15);
  assert.match(await page.$eval('#headline-title',e=>e.textContent),/territoire/i);
  await page.click('[data-sector="NE"]');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/STATIONS/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/filtrées/);
  await page.click('[data-view="fiabilite"]');
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),11);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
