@@ -89,7 +89,7 @@ try{
  });
  await page.goto(url,{waitUntil:'load',timeout:20000});
  await page.waitForFunction(()=>document.querySelector('#station-overlay')?.width>0,{timeout:10000});
- await page.waitForFunction(()=>document.querySelector('#map-count')?.textContent.includes('REPÈRES'),{timeout:10000});
+ await page.waitForFunction(()=>document.querySelector('#map-count')?.dataset.markers !== undefined,{timeout:10000});
  const initial=await page.evaluate(()=>{
   const map=document.getElementById('map'),canvas=document.getElementById('station-overlay');
   const ctx=canvas.getContext('2d');
