@@ -25,3 +25,7 @@ __pycache__/
 .wrangler/
 node_modules/
 cloudflare/.dev.vars
+
+# P6 archived data is generated from real releases, never committed.
+/web/data/*.json
+/web/node_modules/

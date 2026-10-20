@@ -1,0 +1,68 @@
+"""P6 SQL fixture integration; constructed station values are TEST DATA ONLY."""
+import sqlite3
+from datetime import datetime, timezone
+from pathlib import Path
+
+import pytest
+
+from scripts.export_p6 import export
+
+
+def create_db(path):
+    db = sqlite3.connect(path)
+    db.executescript('''
+    CREATE TABLE ingestion_runs (run_id TEXT PRIMARY KEY, started_at TEXT, status TEXT, station_status_count INT);
+    CREATE TABLE dim_stations (station_id INT PRIMARY KEY, station_code TEXT, station_name TEXT, latitude REAL, longitude REAL, capacity INT);
+    CREATE TABLE fact_station_status (station_id INT, run_id TEXT, collected_at TEXT, station_reported_at TEXT,
+        num_bikes_available INT, num_docks_available INT, mechanical_bikes INT, electric_bikes INT,
+        reported_lag_seconds INT, is_usable INT, is_installed INT, is_renting INT, is_returning INT);
+    CREATE TABLE data_quality_issues (run_id TEXT,issue_code TEXT);
+    ''')
+    db.executemany('INSERT INTO dim_stations VALUES (?,?,?,?,?,?)',[
+        (1,'001','A & <B>',48.85,2.34,20), (2,'002','Without observation',48.86,2.35,12),
+        (3,'003','Invalid station',48.86,2.36,18),
+    ])
+    db.executemany('INSERT INTO ingestion_runs VALUES (?,?,?,?)', [
+        ('a','2026-10-20T08:00:00+00:00','success',2),
+        ('b','2026-10-20T08:45:00+00:00','success',2),
+        ('c','2026-10-20T08:55:00+00:00','failed',1),
+    ])
+    db.executemany('INSERT INTO fact_station_status VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)',[
+        (1,'a','2026-10-20T08:00:00+00:00','2026-10-20T07:59:20+00:00',5,15,3,2,40,1,1,1,1),
+        (3,'a','2026-10-20T08:00:00+00:00',None,3,15,2,1,None,0,0,0,0),
+        (1,'b','2026-10-20T08:45:00+00:00','2026-10-20T08:44:00+00:00',0,20,0,0,60,1,1,1,1),
+        (3,'b','2026-10-20T08:45:00+00:00',None,99,0,90,9,None,0,0,0,0),
+    ])
+    db.execute("INSERT INTO data_quality_issues VALUES ('b','stale_station_report')")
+    db.commit();db.close()
+
+
+def test_empty_history_rejected(tmp_path):
+    p=tmp_path/'empty.sqlite';create_db(p)
+    with sqlite3.connect(p) as db:db.execute('DELETE FROM ingestion_runs');db.commit()
+    with pytest.raises(ValueError,match='No real successful'):
+        export('sqlite:///'+str(p))
+
+
+def test_snapshot_is_one_latest_run_without_mixing_ages(tmp_path):
+    p=tmp_path/'x.sqlite';create_db(p)
+    d=export('sqlite:///'+str(p), now=datetime(2026,10,20,9,tzinfo=timezone.utc))
+    assert d['run_id']=='b'
+    assert d['captured_at']=='2026-10-20T08:45:00Z'
+    assert d['metrics']=={'stations':3,'observed':2,'usable':1,'unusable':1,'bikes':0,'docks':20,'empty':1,'capture_count':2}
+    a,b,c=d['stations']
+    assert a['condition']=='empty' and a['bikes']==0 and a['docks']==20
+    assert b['condition']=='unknown' and b['bikes'] is None and not b['observed']
+    assert c['condition']=='unknown' and c['bikes'] is None and c['lag_seconds'] is None
+    assert d['forecast']['status']=='unavailable'
+    assert d['issues']==[{'code':'stale_station_report','count':1}]
+    assert d['history'][1]['gap_minutes']==45 and not d['history'][1]['connected_to_previous']
+
+
+def test_history_limit_and_no_stations(tmp_path):
+    p=tmp_path/'x.sqlite';create_db(p)
+    with pytest.raises(ValueError):export('sqlite:///'+str(p),history_limit=97)
+    assert export('sqlite:///'+str(p),history_limit=1)['metrics']['capture_count']==1
+    with sqlite3.connect(p) as db:db.execute('DELETE FROM dim_stations');db.commit()
+    with pytest.raises(ValueError,match='Missing real station'):
+        export('sqlite:///'+str(p))
