@@ -11,3 +11,13 @@ __pycache__/
 /dist/
 /build/
 .coverage
+
+# Latest generated PBIP lives at the root of the ONE local Git checkout.
+# Git tracks its generator, not large generated artifacts or personal Desktop edits.
+/UrbanOps.pbip
+/UrbanOps.Report/
+/UrbanOps.SemanticModel/
+/BUILD_MANIFEST.json
+/COLLECTOR_COVERAGE.json
+/README_OUVERTURE.md
+/.urbanops-local/
