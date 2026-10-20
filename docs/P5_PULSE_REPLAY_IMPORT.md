@@ -126,3 +126,102 @@ ne sont pas écrasées.
 **Aucun scraping de session, Turnstile ou contournement des limites du site
 n'est fourni.** La demande d'export GitHub #4 reste en attente ; ce module
 accepte des fichiers reçus ou récupérés avec autorisation.
+
+
+## Acquisition automatisée multi-fenêtres (P5.3, **non exécutée**)
+
+Le téléchargement manuel station par station ou heure par heure est abandonné.
+La source est l'endpoint réseau déjà vérifié : une fenêtre d'une heure
+contient la **baseline de toutes les stations** et les **changements**
+de la période. 168 fenêtres sont nécessaires **au maximum en théorie**
+pour couvrir sept jours avec des fenêtres d'une heure.
+
+**Prérequis obligatoire** : le propriétaire du service doit autoriser le
+volume de requêtes et indiquer une cadence acceptable. La demande est
+documentée dans https://github.com/angristan/velib/issues/4 .
+Ne pas déduire une autorisation des quatre lectures manuelles déjà réalisées.
+
+### Installation locale (une fois)
+
+Depuis le dossier du dépôt Urban Ops :
+
+\`\`\`bash
+python -m pip install -e ".[pulse]"
+python -m playwright install chromium
+\`\`\`
+
+Le navigateur Chromium piloté par Playwright est **visible**. Le programme
+ne résout pas Turnstile automatiquement : l'utilisateur doit vérifier
+normalement sa session dans la fenêtre du site. Le navigateur est éphémère,
+et aucun cookie ni token ne sont écrit sur le disque.
+
+### Prévisualiser le plan sans aucun accès réseau
+
+\`\`\`bash
+python -m scripts.collect_pulse_replay_batch --output data/pulse-batch-001 --hours 168
+\`\`\`
+
+Cette commande crée un manifeste local avec une ancre horaire UTC fixe,
+les bornes estimées, et zéro fichier collecté. Comme la fenêtre de rétention
+est **glissante**, ne préparer le plan définitif que lorsque l'accord
+est obtenu et la collecte prête à démarrer. Si l'ancre devient périmée,
+créer un **nouveau dossier**, sans supprimer les archives déjà reçues.
+
+### Exécuter **seulement après autorisation**
+
+\`\`\`bash
+python -m scripts.collect_pulse_replay_batch \
+  --output data/pulse-batch-001 \
+  --hours 168 \
+  --run --owner-approved --interval-seconds N
+\`\`\`
+
+Remplacer **N** par le délai (en secondes) accepté par le responsable
+de l'API. Il n'existe **aucune cadence présumée autorisée**. La borne
+technique minimale du programme est de cinq secondes, mais ce n'est
+**pas** une recommandation d'utilisation du serveur. La commande est
+inopérante sans les options explicites \`--run\`, \`--owner-approved\`
+et \`--interval-seconds\`.
+
+La session vérifiée dans la fenêtre du navigateur est partagée avec les
+requêtes HTTP de cette même session. La collecte reste **séquentielle** :
+jamais de parallélisme, jamais d'accès à l'historique station par station.
+Les périodes les plus anciennes sont récupérées **en premier** afin de
+réduire le risque de rétention glissante.
+
+Chaque requête réussie produit \`replay-at-<unix>.json\` validé avant
+l'enregistrement, et ajoute une entrée au
+\`pulse_batch_manifest.json\` avec son SHA-256, ses dates et ses compteurs.
+En cas d'arrêt, la même commande dans le même dossier vérifie les fichiers
+existants, puis ne demande que les fenêtres manquantes. Elle ne recharge
+pas les fichiers présents ou ne remplace pas silencieusement des fichiers
+altérés.
+
+**Arrêts immédiats** : accès refusé ou session invalide (401/403),
+limitation 429 avec \`Retry-After\` communiqué sans réessai automatique,
+autre code HTTP, JSON invalide, horodatage anormal, retour historique
+hors des sept jours. Une erreur n'efface jamais les JSON déjà validés.
+Il est interdit de contourner les protections du fournisseur.
+
+### Audit avant toute qualification P5
+
+Après collecte autorisée et uniquement pour les fichiers existants :
+
+\`\`\`bash
+python -m scripts.reconstruct_pulse_replay \
+  --output data/pulse-batch-audit \
+  data/pulse-batch-001/replay-at-*.json
+\`\`\`
+
+Le reconstructeur reconnaît les suppressions de stations encodées
+par \`m=e=d=o=0\` dans les **frames** de Pulse. Les états initiaux
+(\`baseline\`) entièrement nuls ne sont **pas** automatiquement assimilés
+à des suppressions. Cette correction évite de continuer à afficher une
+station absente pendant les fenêtres suivantes.
+
+Examiner le manifeste, les stations distinctes, la fraîcheur,
+les trous, les chevauchements et la couverture par créneau de cinq minutes.
+Les fichiers reconstitués demeurent de provenance
+\`velib-pulse-unofficial\`, \`training_qualified=false\`.
+Aucune écriture automatique dans P3 ni entraînement P5 : une qualification
+explicite de la source est requise.
