@@ -111,8 +111,8 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
             "electric": as_int(r["electric_bikes"]) if usable else None,
             "reported_at": iso(r["station_reported_at"]) if r["station_reported_at"] else None,
             "lag_seconds": as_int(r["reported_lag_seconds"]),
-            "is_operational": (all(r[flag] == 1 for flag in ("is_installed", "is_renting", "is_returning"))
-                               if present else None),
+            "is_operational": (None if not present or any(r[flag] is None for flag in ("is_installed", "is_renting", "is_returning"))
+                               else all(r[flag] == 1 for flag in ("is_installed", "is_renting", "is_returning"))),
             "issues": station_issues.get(str(r["station_id"]), []),
         })
     current = counts.get(latest["run_id"])
