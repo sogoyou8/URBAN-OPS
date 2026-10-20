@@ -152,3 +152,7 @@ Actions (14 jours de rétention). Voir [`powerbi/MODEL.md`](powerbi/MODEL.md)
 (4 pages, relations, DAX, M, thème) et [`docs/P4_VALIDATION.md`](docs/P4_VALIDATION.md).
 Ce kit n'est **pas** un `.pbix` préconstruit : l'assemblage visuel final doit être
 réalisé et vérifié dans Power BI Desktop.
+
+## P3.5 — Historique et régularité
+
+La collecte GitHub Actions est **best effort** ; deux captures espacées de plusieurs heures prouvent que le rythme visé n'est pas garanti. Un audit indépendant des archives de Releases est exécuté périodiquement et sur demande ; il remonte les écarts, l'âge de la dernière archive et une couverture indicative sur 24 h. Voir [P3.5 — Fiabilité de la collecte](docs/P35_COLLECTOR_RELIABILITY.md). Aucun événement passé n'est recréé.
