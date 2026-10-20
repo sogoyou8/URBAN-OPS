@@ -4,7 +4,6 @@ const URLS = Object.freeze({
   station_information: `${API}station_information.json`,
   station_status: `${API}station_status.json`,
 });
-const textEncoder = new TextEncoder();
 const textDecoder = new TextDecoder('utf-8', { fatal: true });
 
 const iso = (time) => new Date(time).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -24,7 +23,8 @@ async function readFeed(name, fetchImpl, now) {
     throw new Error(`${name}: unexpected station count`);
   }
   const epoch = payload?.lastUpdatedOther;
-  if (!Number.isInteger(epoch) || epoch < 1_600_000_000 || (now - epoch * 1000) > 30 * 60_000 ||
+  if (!Number.isInteger(epoch) || epoch < 1_600_000_000 ||
+      (name === 'station_status' && (now - epoch * 1000) > 30 * 60_000) ||
       (now - epoch * 1000) < -5 * 60_000) {
     throw new Error(`${name}: invalid/stale feed publication timestamp`);
   }
