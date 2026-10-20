@@ -90,7 +90,7 @@ export function localTime(at){return new Intl.DateTimeFormat('fr-FR',{dateStyle:
  * Cluster at low zoom to preserve clickability and performance. */
 export function layoutMapMarkers(stations, project, width, height, zoom=11, selectedId=null) {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width<=0 || height<=0) return [];
-  const cell=zoom < 13.2 ? 25 : 11;
+  const cell=zoom < 13.2 ? 25 : zoom < 16 ? 11 : 8;
   const cells=new Map();
   for (const station of stations) {
     if (!Number.isFinite(station.lon)||!Number.isFinite(station.lat)) continue;
@@ -135,5 +135,40 @@ export const ISSUE_LABELS = Object.freeze({
   invalid_operational_flag:'État de service invalide',
   bike_types_disagree:'Types de vélos incohérents',
   station_code_mismatch:'Identifiants de station incohérents',
+  invalid_or_duplicate_information_id:'Identifiant de station absent ou dupliqué',
+  invalid_or_duplicate_status_id:'Identifiant de statut absent ou dupliqué',
+  alias_bikes_mismatch:'Nombre de vélos incohérent entre les deux champs source',
+  alias_docks_mismatch:'Nombre de bornes incohérent entre les deux champs source',
+  station_report_future_of_feed:'Signal station daté après le flux source',
 });
 export function issueLabel(code){return ISSUE_LABELS[code] ?? String(code).replaceAll('_',' ');}
+
+/** No ML readiness is deduced from a short P6 replay. All thresholds come from
+ * P5's ten-day GitHub Release filename inventory and remain unverified labels. */
+export function p5Gate(data){
+  const evidence=data?.p5_readiness;
+  if(!evidence || evidence.status==='unavailable' || evidence.source!=='GitHub Release asset names (not P3 revalidated content)')
+    return {available:false,captures:null,days:null,coverage:null,eligible:false,checkedAt:null};
+  const valid=Number.isInteger(evidence.captures)&&evidence.captures>=0 &&
+    Number.isFinite(evidence.span_days)&&evidence.span_days>=0 &&
+    (evidence.coverage_estimate===null || (Number.isFinite(evidence.coverage_estimate)&&evidence.coverage_estimate>=0&&evidence.coverage_estimate<=1));
+  if(!valid)return {available:false,captures:null,days:null,coverage:null,eligible:false,checkedAt:null};
+  return {available:true,captures:evidence.captures,days:evidence.span_days,
+    coverage:evidence.coverage_estimate,eligible:evidence.status==='eligible_to_attempt_training',
+    checkedAt:evidence.checked_at_utc,reason:evidence.reason};
+}
+
+/** Observed invalid/unknown is distinct from missing. No issue type alone proves
+ * a station's availability; flags and per-station events come from the same run. */
+export function qualityReasons(station){
+  const reasons=[];
+  if(!station.observed)return ['Aucun statut enregistré pour cette station dans la capture.'];
+  if(station.is_operational===false)reasons.push('Service interrompu : la station ne permet pas les opérations normales.');
+  for(const issue of station.issues||[]){
+    const label=issueLabel(issue.code);
+    if(!reasons.includes(label)) reasons.push(label);
+  }
+  if(!station.usable && reasons.length===0)reasons.push('Observation rejetée par les règles de qualité P3 ; motif non disponible.');
+  if(station.usable && reasons.length===0)reasons.push('Observation qualifiée, sans anomalie attachée.');
+  return reasons;
+}

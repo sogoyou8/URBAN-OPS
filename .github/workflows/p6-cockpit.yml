@@ -4,6 +4,7 @@ on:
     paths:
       - 'web/**'
       - 'scripts/export_p6.py'
+      - 'scripts/p5_inventory.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
       - '.github/workflows/p6-cockpit.yml'
@@ -12,6 +13,7 @@ on:
     paths:
       - 'web/**'
       - 'scripts/export_p6.py'
+      - 'scripts/p5_inventory.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
       - '.github/workflows/p6-cockpit.yml'
@@ -102,9 +104,11 @@ jobs:
           set -euo pipefail
           mapfile -t captures < /tmp/p6-selected.txt
           python -m scripts.replay_capture --db-url sqlite:///./data/p6-real.sqlite "${captures[@]}" > data/p6-replay.json
-      - name: Export actual map, station metrics and capture history
+      - name: Inventory P5 readiness from last ten days of GitHub asset names
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/p5-inventory.json
+      - name: Export actual map, station metrics, history and qualified readiness
         run: |
-          python -m scripts.export_p6 --db-url sqlite:///./data/p6-real.sqlite --output web/data/network.json
+          python -m scripts.export_p6 --db-url sqlite:///./data/p6-real.sqlite --output web/data/network.json --p5-inventory data/p5-inventory.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -112,6 +116,9 @@ jobs:
           assert d['dataset_type']=='archived_p3_observations' and d['metrics']['stations'] > 1000, d.get('metrics')
           assert d['metrics']['observed'] > 1000, d.get('metrics')
           assert d['forecast']['status']=='unavailable', 'Prediction not validated'
+          assert d['p5_readiness']['source'].startswith('GitHub Release asset names')
+          assert d['quality_diagnostics']['not_observed']+d['quality_diagnostics']['observed_but_unusable'] == d['metrics']['stations']-d['metrics']['usable']
+          print('P5 archive-name inventory (NOT validated ML):',json.dumps(d['p5_readiness'],sort_keys=True))
           print('P6 verified real observations:',json.dumps({'at':d['captured_at'],'stations':d['metrics']['stations'],'captures':d['metrics']['capture_count']},sort_keys=True))
           PY
       - name: Upload only public observations for local sync, no paid deployment
