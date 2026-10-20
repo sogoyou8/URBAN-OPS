@@ -1,0 +1,12 @@
+# CONFIGURATION ONLY: do not deploy until billing is explicitly approved.
+name = "urban-ops-velib-collector"
+main = "src/collector.mjs"
+compatibility_date = "2026-10-19"
+workers_dev = false
+
+[triggers]
+crons = ["*/5 * * * *"]
+
+[[r2_buckets]]
+binding = "URBAN_ARCHIVES"
+bucket_name = "urbanops-captures"

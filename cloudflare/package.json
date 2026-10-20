@@ -1,0 +1,8 @@
+{
+  "private": true,
+  "name": "urban-ops-cloudflare-collector",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {"test": "node --test", "dev": "wrangler dev --test-scheduled"},
+  "devDependencies": {"wrangler": "^4.139.0"}
+}

@@ -1,0 +1,35 @@
+name: P3.5 Cloudflare collector offline verification
+on:
+  pull_request:
+    paths:
+      - 'cloudflare/**'
+      - 'scripts/convert_r2_snapshot.py'
+      - 'tests/test_cloudflare_import.py'
+      - '.github/workflows/cloudflare-collector-checks.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'cloudflare/**'
+      - 'scripts/convert_r2_snapshot.py'
+      - 'tests/test_cloudflare_import.py'
+permissions:
+  contents: read
+jobs:
+  offline-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: JavaScript syntax and offline R2/Cron tests
+        run: |
+          node --check cloudflare/src/collector.mjs
+          node --test cloudflare/test/collector.test.mjs
+      - name: Offline conversion and existing P3 archive interoperability
+        run: python -m unittest discover -s tests -p test_cloudflare_import.py -v
+      # Deliberately NO wrangler deploy, R2 activation or Cloudflare credentials.

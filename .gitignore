@@ -21,3 +21,7 @@ __pycache__/
 /COLLECTOR_COVERAGE.json
 /README_OUVERTURE.md
 /.urbanops-local/
+# Cloudflare local emulator / secrets, never commit
+.wrangler/
+node_modules/
+cloudflare/.dev.vars
