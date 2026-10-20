@@ -64,3 +64,6 @@
   .operational{grid-template-columns:minmax(0,1fr) 290px}
   .filter-pill{padding:7px 6px}
 }
+
+/* P6.6 responsive guard: never create lateral document scroll. */
+html,body{max-width:100%;overflow-x:clip}

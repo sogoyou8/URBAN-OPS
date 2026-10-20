@@ -109,6 +109,28 @@ try{
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/0/);
  await page.click('[data-back]');
  assert.ok(await page.$('#station-search'));
+ // Representative laptop and mobile breakpoints.
+ await page.setViewport({width:1024,height:768,deviceScaleFactor:1});
+ await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
+ await new Promise(done=>setTimeout(done,80));
+ const laptop=await page.evaluate(()=>({h:document.documentElement.scrollHeight,v:innerHeight,w:document.documentElement.scrollWidth,vw:innerWidth}));
+ assert.ok(laptop.h<=laptop.v+3,'Laptop cockpit must stay within viewport');
+ assert.ok(laptop.w<=laptop.vw+3,'Laptop must not scroll horizontally');
+ await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+ await new Promise(done=>setTimeout(done,80));
+ const mobile=await page.evaluate(()=>({w:document.documentElement.scrollWidth,vw:innerWidth}));
+ assert.ok(mobile.w<=mobile.vw+3,'Mobile must not scroll horizontally');
+ // External map library unavailable: geographically accurate fallback buttons remain clickable.
+ const fallbackPage=await browser.newPage();
+ await fallbackPage.setViewport({width:1440,height:900});
+ await fallbackPage.setRequestInterception(true);
+ fallbackPage.on('request',req=>req.url().startsWith(url)?req.continue():req.abort());
+ await fallbackPage.goto(url,{waitUntil:'load',timeout:20000});
+ await fallbackPage.waitForFunction(()=>!document.querySelector('#map-fallback').hidden,{timeout:10000});
+ assert.equal(await fallbackPage.$eval('.fallback-point',els=>els.length),4);
+ await fallbackPage.click('.fallback-point[aria-label="Inspecter Bercy – Test"]');
+ assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/Bercy – Test/);
+ await fallbackPage.close();
  console.log('P6.6 BROWSER PASS: canvas marks, mono-screen, 4 tabs, sectors, quality, P5 gate, search, selection/back.');
 }finally{
  if(browser)await browser.close();
