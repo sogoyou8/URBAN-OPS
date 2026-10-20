@@ -1,0 +1,27 @@
+name: Windows workspace sync safety tests
+on:
+  pull_request:
+    paths:
+      - 'scripts/sync-urbanops.ps1'
+      - 'scripts/test-sync-urbanops.ps1'
+      - '.github/workflows/workspace-sync-tests.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  powershell-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check single-folder PBIP sync and edit preservation (offline)
+        shell: pwsh
+        run: ./scripts/test-sync-urbanops.ps1
+  windows-powershell51:
+    runs-on: windows-latest
+    timeout-minutes: 7
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell 5.1 compatibility and local edits protection
+        shell: powershell
+        run: ./scripts/test-sync-urbanops.ps1
