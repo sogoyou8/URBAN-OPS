@@ -117,8 +117,8 @@ def acquire(output_dir: Path, manifest: dict, requester: Callable[[str], tuple[i
     The caller provides an already authorized request function. No Turnstile
     challenge is solved or bypassed by this module.
     """
-    if interval_seconds < 5:
-        raise ValueError("Interval must be >=5 seconds, and owner-approved")
+    if interval_seconds < 30:
+        raise ValueError("Interval must be at least 30 seconds")
     plan = make_plan(manifest["anchor_at"], manifest["hours"])
     if manifest["origin"] != HOST or manifest["minutes"] != 60:
         raise CollectionStopped("Unexpected batch destination or window size")
