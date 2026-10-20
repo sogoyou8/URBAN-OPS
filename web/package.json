@@ -1,0 +1,1 @@
+{"name":"urbanops-p6-cockpit","private":true,"version":"0.1.0","type":"module","scripts":{"test":"node --test src/core.test.mjs","dev":"python -m http.server 5173 --directory ."}}
