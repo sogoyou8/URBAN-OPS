@@ -127,7 +127,7 @@ try{
  fallbackPage.on('request',req=>req.url().startsWith(url)?req.continue():req.abort());
  await fallbackPage.goto(url,{waitUntil:'load',timeout:20000});
  await fallbackPage.waitForFunction(()=>!document.querySelector('#map-fallback').hidden,{timeout:10000});
- assert.equal(await fallbackPage.$eval('.fallback-point',els=>els.length),4);
+ assert.equal(await fallbackPage.$$eval('.fallback-point',els=>els.length),4);
  await fallbackPage.click('.fallback-point[aria-label="Inspecter Bercy – Test"]');
  assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/Bercy – Test/);
  await fallbackPage.close();

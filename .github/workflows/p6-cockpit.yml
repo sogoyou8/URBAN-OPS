@@ -56,7 +56,7 @@ jobs:
         id: browser
       - name: Install headless browser driver without any deployment
         working-directory: web
-        run: npm install --no-save --ignore-scripts puppeteer-core@23
+        run: npm install --no-save --ignore-scripts puppeteer-core@24
       - name: Exercise synthetic screen fixture in Chromium (never publish its data)
         working-directory: web
         env:
