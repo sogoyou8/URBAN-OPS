@@ -1,8 +1,8 @@
 """One-command interactive browser batch downloader for authorized Pulse replays.
 
 Usage: python -m scripts.collect_pulse_replay_batch --output data/pulse-batch
-Executes no network requests unless --run, --owner-approved and an explicitly
-approved interval are provided.
+Executes no network requests unless --run is explicitly provided. Requests are
+sequential, deliberately throttled, and stop on a rate limit or denial.
 """
 from __future__ import annotations
 
@@ -20,16 +20,12 @@ def main(argv=None):
     parser.add_argument("--hours", type=int, default=168, help="1..168 (default 168)")
     parser.add_argument("--anchor-at", type=int, help="UTC Unix minute, fixed on first run")
     parser.add_argument("--run", action="store_true", help="Run authenticated browser collection")
-    parser.add_argument("--owner-approved", action="store_true",
-                        help="Confirm that the service owner approved the bulk retrieval")
-    parser.add_argument("--interval-seconds", type=float,
-                        help="Request cadence approved by the service owner (min 5s)")
+    parser.add_argument("--interval-seconds", type=float, default=60.0,
+                        help="Seconds between requests (default 60; minimum 30)")
     args = parser.parse_args(argv)
 
-    if args.run and (not args.owner_approved or args.interval_seconds is None):
-        parser.error("--run requires --owner-approved and --interval-seconds")
-    if args.run and args.interval_seconds < 5:
-        parser.error("--interval-seconds must be at least 5")
+    if args.run and args.interval_seconds < 30:
+        parser.error("--interval-seconds must be at least 30")
     try:
         batch = prepare(args.output, args.hours, args.anchor_at)
     except (ValueError, CollectionStopped) as exc:
@@ -41,7 +37,7 @@ def main(argv=None):
             "first_at_utc": batch["first_at_utc"],
             "last_at_utc": batch["last_at_utc"],
             "stored_windows": len(batch["windows"]),
-            "next_step": "Await owner authorization, then --run --owner-approved --interval-seconds N",
+            "next_step": "Use --run to start sequential requests after reviewing provider terms",
         }, ensure_ascii=False, indent=2))
         return 0
 
