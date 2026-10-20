@@ -183,7 +183,8 @@ function selectStation(id) {
   if(!station)return;
   state.selected=station.id;state.view='reseau';state.sector='all';state.query='';state.filter='all';
   document.querySelectorAll('.filter-pill').forEach(el=>el.classList.toggle('active',el.dataset.filter==='all'));
-  updateNav();renderInspector();repaintMap();focusStation(station);
+  history.replaceState(null,'','#reseau');
+  updateNav();paintStats();renderInspector();repaintMap();focusStation(station);
 }
 function updateNav() {
   for(const nav of document.querySelectorAll('.nav')){
@@ -199,7 +200,7 @@ function updateNav() {
   };
   const [index,title,description,maptitle]=views[state.view];
   document.querySelector('.index').textContent=index;
-  $('headline-title').textContent=title;
+  $('headline-title').innerHTML=html(title.slice(0,-1))+'<span class="period">.</span>';
   $('headline-description').textContent=description;
   $('map-title').textContent=maptitle;
   document.querySelector('.workspace').dataset.view=state.view;
@@ -321,3 +322,7 @@ for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener(
 $('reload').addEventListener('click',refresh);
 const hash=location.hash.slice(1);if(['reseau','territoires','fiabilite','previsions'].includes(hash))state.view=hash;
 refresh();
+window.addEventListener('hashchange',()=>{
+  const requested=location.hash.slice(1);
+  if(['reseau','territoires','fiabilite','previsions'].includes(requested))activateView(requested);
+});
