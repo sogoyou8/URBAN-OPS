@@ -1,0 +1,71 @@
+/** P6.9 real archive package QA, served under a GitHub Pages-style subdirectory.
+ * Chromium has no direct Internet access and DOES NOT deploy anything.
+ */
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {resolve, extname, relative, sep} from 'node:path';
+import puppeteer from 'puppeteer-core';
+
+const root=resolve(process.argv[2]||'dist/p6-public');
+const prefix='/URBAN-OPS/';
+const server=createServer(async(req,res)=>{
+  const request=new URL(req.url,'http://127.0.0.1');
+  if(!request.pathname.startsWith(prefix)){res.writeHead(404).end();return;}
+  const sub=decodeURIComponent(request.pathname.slice(prefix.length))||'index.html';
+  const path=resolve(root,sub);
+  if(!(path===root || path.startsWith(root+sep))){res.writeHead(403).end();return;}
+  try{
+    const b=await readFile(path);
+    const type={'.js':'application/javascript','.css':'text/css','.html':'text/html','.json':'application/json'}[extname(path)]||'application/octet-stream';
+    res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store'}).end(b);
+  }catch{res.writeHead(404).end();}
+});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));
+const base=`http://127.0.0.1:${server.address().port}${prefix}`;
+let browser;
+try{
+  browser=await puppeteer.launch({headless:true,executablePath:process.env.P6_CHROME||'/usr/bin/google-chrome',args:['--no-sandbox','--disable-dev-shm-usage','--use-gl=angle']});
+  const page=await browser.newPage();
+  await page.setViewport({width:1440,height:900,deviceScaleFactor:1});
+  const errors=[], blocked=[];
+  page.on('pageerror',e=>errors.push(String(e)));
+  await page.setRequestInterception(true);
+  page.on('request',req=>{
+    const u=req.url();
+    if(u.startsWith(base))return req.continue();
+    if(u.startsWith('https://tiles.openfreemap.org/styles/dark')){
+      return req.respond({status:200,contentType:'application/json',body:JSON.stringify({version:8,name:'Offline QA background',sources:{},layers:[]})});
+    }
+    blocked.push(u);return req.abort('blockedbyclient');
+  });
+  await page.goto(base,{waitUntil:'domcontentloaded',timeout:20000});
+  await page.waitForFunction(()=>document.querySelector('#map-count')?.dataset.filtered,
+    {timeout:20000});
+  const initial=await page.evaluate(()=>{
+    const d=document.querySelector('#map-count');
+    return {filtered:+d.dataset.filtered,visible:+d.dataset.visible,markers:+d.dataset.markers,
+      scrollHeight:document.documentElement.scrollHeight,height:innerHeight,
+      scrollWidth:document.documentElement.scrollWidth,width:innerWidth,
+      scriptVendor:performance.getEntriesByType('resource').some(r=>r.name.includes('/vendor/maplibre-gl.js'))};
+  });
+  assert.ok(initial.filtered>1000,'Must load the actual replay-verified Vélib public data');
+  assert.ok(initial.scriptVendor,'Page must load self-hosted MapLibre');
+  assert.ok(initial.scrollHeight<=initial.height+3,'Desktop must remain screen-height');
+  assert.ok(initial.scrollWidth<=initial.width+3,'Desktop must not scroll sideways');
+  assert.ok(initial.visible<=initial.filtered && initial.markers<=initial.visible,'Viewport labels must be coherent');
+  await page.click('[data-view="fiabilite"]');
+  assert.match(await page.$eval('#headline-title',e=>e.textContent),/donnée/i);
+  await page.click('[data-view="previsions"]');
+  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/PRÉVISION NON DISPONIBLE/);
+  await page.click('[data-view="reseau"]');
+  await page.setViewport({width:390,height:844,deviceScaleFactor:1});
+  await new Promise(r=>setTimeout(r,100));
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3), 'Mobile must not scroll horizontally');
+  assert.deepEqual(errors,[],'No browser page exceptions');
+  assert.ok(!blocked.some(u=>u.includes('cdn.jsdelivr.net/npm/maplibre-gl')),'No external JS CDN at runtime');
+  console.log(JSON.stringify({status:'PASS',loaded_real_stations:initial.filtered,vendor_loaded:true,network_requests_blocked:blocked.length,offline_basemap_smoke:true}));
+}finally{
+  if(browser)await browser.close();
+  await new Promise(r=>server.close(r));
+}
