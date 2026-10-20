@@ -23,6 +23,11 @@ const fixture={
  history:[{at:'2026-10-20T01:00:00Z',bikes:15,gap_minutes:null,connected_to_previous:false},
           {at:'2026-10-20T01:05:00Z',bikes:16,gap_minutes:5,connected_to_previous:true}],
  forecast:{status:'unavailable',horizon_minutes:30},
+ quality_diagnostics:{not_observed:0,observed_but_unusable:1,observed_non_operational:1,
+   stations_with_multiple_issue_events:0},
+ p5_readiness:{status:'insufficient_history',source:'GitHub Release asset names (not P3 revalidated content)',
+    captures:27,span_days:0.65,coverage_estimate:0.2,checked_at_utc:at},
+
 };
 
 async function startServer(){
@@ -96,8 +101,15 @@ try{
  assert.match(await page.$eval('#map-count',e=>e.textContent),/STATIONS/);
  await page.click('[data-view="fiabilite"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/observations reçues, non exploitables/);
+ await page.click('#inspect-unqualified');
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 STATIONS/);
+ assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
+ await page.click('[data-view="fiabilite"]');
  await page.click('[data-view="previsions"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/PRÉVISION NON DISPONIBLE/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/27 \/ 900/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Non vérifiées ici/);
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
  assert.match(await page.$eval('#map-count',e=>e.textContent),/1 STATIONS/);
@@ -105,9 +117,16 @@ try{
  await page.type('#station-search','Bercy');
  assert.match(await page.$eval('#station-results',e=>e.textContent),/1 stations/);
  await page.click('[data-station="2"]');
+ assert.ok(await page.$('#map-reset'));
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Bercy – Test/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/0/);
  await page.click('[data-back]');
+ assert.ok(await page.$('#station-search'));
+ assert.equal(await page.$eval('#station-search',el=>el.value),'Bercy');
+ await page.click('#map-reset');
+ assert.equal(await page.$eval('#station-search',el=>el.value),'Bercy');
+ await page.click('[data-station="2"]');
+ await page.keyboard.press('Escape');
  assert.ok(await page.$('#station-search'));
  // Representative laptop and mobile breakpoints.
  await page.setViewport({width:1024,height:768,deviceScaleFactor:1});

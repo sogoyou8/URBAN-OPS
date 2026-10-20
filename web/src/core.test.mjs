@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,issueLabel} from './core.js';
+import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,issueLabel,p5Gate,qualityReasons} from './core.js';
 const stations=[
  {id:'1',name:'A & <B>',code:'001',lat:48.8,lon:2.2,usable:true,condition:'available',bikes:5,docks:5},
  {id:'2',name:'Deux',code:'002',lat:48.9,lon:2.4,usable:true,condition:'empty',bikes:0,docks:10},
@@ -54,4 +54,25 @@ test('clusters at overview zoom and zooming retains real station ids',()=>{
  assert.equal(projected[0].count,3);
  assert.deepEqual(projected[0].ids,['a','b','c']);
  assert.equal(issueLabel('stale_station_report'),'Signal station trop ancien');
+});
+
+test('P5 gating is filename-only evidence, never ML validation',()=>{
+  const unavailable=p5Gate(payload);
+  assert.equal(unavailable.available,false);
+  const inv={p5_readiness:{
+    status:'insufficient_history',source:'GitHub Release asset names (not P3 revalidated content)',
+    captures:24,span_days:0.4,coverage_estimate:0.35,checked_at_utc:'2026-10-20T05:00:00Z'
+  }};
+  const result=p5Gate(inv);
+  assert.deepEqual([result.available,result.captures,result.days,result.eligible],[true,24,0.4,false]);
+  assert.equal(p5Gate({p5_readiness:{...inv.p5_readiness,source:'not verifiable'}}).available,false);
+  assert.equal(p5Gate({p5_readiness:{...inv.p5_readiness,captures:-10}}).available,false);
+});
+test('unobserved station and rejected station have distinct explanations',()=>{
+  assert.match(qualityReasons({...stations[2],observed:false})[0],/Aucun statut/);
+  const q=qualityReasons({...stations[2],observed:true,is_operational:false,
+    issues:[{code:'stale_station_report',severity:'warning'}]});
+  assert.ok(q.some(x=>/Service interrompu/.test(x)));
+  assert.ok(q.some(x=>/Signal station trop ancien/.test(x)));
+  assert.equal(issueLabel('alias_bikes_mismatch').includes('deux champs'),true);
 });
