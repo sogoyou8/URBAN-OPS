@@ -9,10 +9,10 @@ const state = { dataset:null, stations:[], view:'reseau', query:'', filter:'all'
 
 
 const GUIDE_CONTEXT={
-  reseau:['Réseau','Chaque repère représente une station ou un groupe de stations Vélib’. Sélectionnez une station pour consulter les vélos, les bornes libres, la date du signal et sa qualité.'],
-  territoires:['Territoires','Comparez quatre quadrants calculés à partir des coordonnées des stations. Ils ne correspondent pas aux arrondissements ou aux communes.'],
-  fiabilite:['Fiabilité','Une mesure reçue mais rejetée est différente d’une station sans observation. Les anomalies sont des événements et peuvent se cumuler sur une station.'],
-  previsions:['Prévisions','L’horizon de 30 minutes est un objectif de modélisation. Les compteurs d’archives indiquent une préparation, pas une preuve de performance prédictive.']
+  reseau:['Réseau','Cliquez sur une station pour voir les vélos disponibles, les bornes libres et la date du dernier relevé.'],
+  territoires:['Territoires','Comparez les disponibilités dans quatre zones du réseau. Ce ne sont pas les arrondissements de Paris.'],
+  fiabilite:['Fiabilité','Découvrez les stations dont les chiffres manquent ou ne peuvent pas être utilisés.'],
+  previsions:['Prévisions','Les prévisions à 30 minutes sont en préparation. Pour l'instant, cette section montre les données déjà rassemblées.']
 };
 let guideReturnFocus=null;
 function updateGuideContext(){
@@ -71,28 +71,28 @@ function paintStats() {
   const ml=p5Gate(d);
   const values={
     reseau:[
-      ['STATIONS RÉFÉRENCÉES',display(m.stations),'dans le catalogue de stations'],
-      ['VÉLOS DISPONIBLES',display(m.bikes),'sur les seules stations qualifiées'],
+      ['STATIONS DU RÉSEAU',display(m.stations),'dans le réseau Vélib’'],
+      ['VÉLOS DISPONIBLES',display(m.bikes),'dans les stations avec données utilisables'],
       ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations qualifiées`],
-      ['OBSERVATIONS EXPLOITABLES',display(m.usable),`${display(m.unusable)} observations non exploitables`],
+      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${display(m.unusable)} observations non exploitables`],
     ],
     territoires:[
-      ['SECTEURS ANALYTIQUES', '4', 'quadrants géographiques, non administratifs'],
-      ['VÉLOS QUALIFIÉS',display(qualified.bikes),'dans le périmètre sélectionné'],
+      ['ZONES COMPARÉES', '4', '4 zones du réseau, pas des arrondissements'],
+      ['VÉLOS COMPTÉS',display(qualified.bikes),'dans la zone choisie'],
       ['STATIONS SANS VÉLO',display(qualified.empty),`${pct(qualified.emptyRate)} des stations qualifiées`],
-      ['STATIONS QUALIFIÉES',display(qualified.usable),`${display(qualified.stations)} stations dans le périmètre`],
+      ['STATIONS AVEC DONNÉES FIABLES',display(qualified.usable),`${display(qualified.stations)} stations dans le périmètre`],
     ],
     fiabilite:[
-      ['OBSERVATIONS EXPLOITABLES',display(m.usable),`${pct(m.observed?m.usable/m.observed:null)} des observations`],
-      ['OBSERVATIONS NON EXPLOITABLES',display(m.unusable),'signal reçu, mais rejeté par P3'],
-      ['SIGNALEMENTS QUALITÉ',display(issues),'événements, pas stations distinctes'],
-      ['CAPTURES HISTORIQUES',display(m.capture_count),'dans cet export archivé'],
+      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${pct(m.observed?m.usable/m.observed:null)} des observations`],
+      ['DONNÉES INUTILISABLES',display(m.unusable),'chiffres reçus, mais non utilisables'],
+      ['SIGNALEMENTS QUALITÉ',display(issues),'une station peut avoir plusieurs alertes'],
+      ['CAPTURES HISTORIQUES',display(m.capture_count),'captures utilisées pour cet écran'],
     ],
     previsions:[
-      ['HORIZON CIBLE','30 min','prévision par station à T + 30 min'],
-      ['CAPTURES RECENSÉES',ml.available?display(ml.captures):'—','archives GitHub sur 10 jours ; non vérifiées ici'],
-      ['JOURS OBSERVÉS',ml.available?String(ml.days.toLocaleString('fr-FR',{maximumFractionDigits:1})):'—','minimum P5 : 7 jours'],
-      ['SCORE PRÉDICTIF','—','aucune métrique réelle validée'],
+      ['PRÉVISION PRÉVUE','30 min','disponibilité estimée dans 30 minutes'],
+      ['CAPTURES RECENSÉES',ml.available?display(ml.captures):'—','captures recensées, à vérifier avant prévision'],
+      ['JOURS DE DONNÉES',ml.available?String(ml.days.toLocaleString('fr-FR',{maximumFractionDigits:1})):'—','7 jours minimum nécessaires'],
+      ['FIABILITÉ DES PRÉVISIONS','—','pas encore mesurée'],
     ],
   }[state.view];
   const nodes=document.querySelectorAll('.metric');
@@ -320,9 +320,9 @@ function updateNav() {
   }
   const views={
     reseau:['01 / 04','Le pouls du réseau.','Explorez les stations Vélib’, leur disponibilité observée et les bornes libres.','Disponibilité par station'],
-    territoires:['02 / 04','Lire le territoire.','Comparez les stations Vélib’ de quatre quadrants d’analyse, non administratifs.','Répartition géographique'],
-    fiabilite:['03 / 04','La preuve par la donnée.','Découvrez pourquoi certaines mesures Vélib’ sont rejetées et d’autres exploitables.','Stations et qualité des mesures'],
-    previsions:['04 / 04','Prédire, sans inventer.','Suivez les conditions de validation du futur modèle Vélib’ à +30 minutes.','Prévisions / en attente'],
+    territoires:['02 / 04','Comparer les secteurs.','Comparez les vélos disponibles dans quatre zones du réseau.','Répartition géographique'],
+    fiabilite:['03 / 04','Des données à vérifier.','Repérez les stations dont les chiffres sont disponibles ou manquants.','Stations et qualité des mesures'],
+    previsions:['04 / 04','Prévisions en préparation.','Les prévisions à 30 minutes seront affichées après vérification de leur fiabilité.','Prévisions / en attente'],
   };
   const [index,title,description,maptitle]=views[state.view];
   document.querySelector('.index').textContent=index;
@@ -331,10 +331,10 @@ function updateNav() {
   $('map-title').textContent=maptitle;
   updateGuideContext();
   document.querySelector('.workspace').dataset.view=state.view;
-  $('panel-state').textContent=state.view==='previsions'?'NON VALIDÉ':state.view==='fiabilite'?'CONTRÔLE':state.view==='territoires'?'ANALYSE SPATIALE':'EXPLORATION';
-  $('timeline-heading').textContent=state.view==='fiabilite'?'Régularité de la collecte':
-    state.view==='territoires'?'Continuité du réseau':
-    state.view==='previsions'?'Historique requis pour P5':'Continuité des captures';
+  $('panel-state').textContent=state.view==='previsions'?'EN PRÉPARATION':state.view==='fiabilite'?'CONTRÔLE':state.view==='territoires'?'COMPARAISON':'EXPLORATION';
+  $('timeline-heading').textContent=state.view==='fiabilite'?'Historique des vélos':
+    state.view==='territoires'?'Historique des vélos':
+    state.view==='previsions'?'Historique des vélos':'Historique des vélos';
 }
 function statusChip(station){
   const category=station.condition;
