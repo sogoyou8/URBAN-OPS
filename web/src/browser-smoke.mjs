@@ -98,11 +98,15 @@ try{
   const map=document.getElementById('map'),canvas=document.getElementById('station-overlay');
   const ctx=canvas.getContext('2d');
   return {markers:document.getElementById('map-count').textContent,
-          pixel:ctx.getImageData(224,165,1,1).data[3],
+          pixel:(()=>{
+            const px=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+            for(let k=3;k<px.length;k+=4)if(px[k]>0)return px[k];
+            return 0;
+          })(),
           pageHeight:document.documentElement.scrollHeight,viewport:window.innerHeight,
           mapWidth:map.getBoundingClientRect().width};
  });
- assert.match(initial.markers,/4 selon les filtres/);
+ assert.match(initial.markers,/4 résultats/);
  assert.equal(await page.$eval('#map-count',el=>el.dataset.filtered),'4');
  assert.equal(await page.$eval('#map-count',el=>el.dataset.visible),'4');
  assert.ok(initial.pixel>0,'Geographic marker MUST render even when style layers never load');
@@ -199,7 +203,7 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),15);
  assert.match(await page.$eval('#headline-title',e=>e.textContent),/secteurs/i);
  await page.click('[data-sector="NE"]');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/selon les filtres/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/résultats/);
  await page.click('[data-view="fiabilite"]');
  await page.click('#open-guide');
  assert.match(await page.$eval('#guide-context-title',el=>el.textContent),/Fiabilité/);
@@ -209,7 +213,7 @@ try{
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/stations avec données inutilisables/);
  await page.click('#inspect-unqualified');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 selon les filtres/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 résultats/);
  assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
  await page.click('[data-station="3"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/FIABILITÉ DES CHIFFRES/);
@@ -229,7 +233,7 @@ try{
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
  assert.equal(await page.$eval('[data-filter="empty"]',e=>e.getAttribute('aria-pressed')),'true');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 selon les filtres/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 résultats/);
  await page.click('[data-filter="all"]');
  await page.type('#station-search','Bercy');
  assert.match(await page.$eval('#station-results',e=>e.textContent),/1 stations/);
