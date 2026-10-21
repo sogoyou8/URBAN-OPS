@@ -94,8 +94,9 @@ test('P6.8 viewport counters exclude offscreen data and correctly count clusters
 // A narrow viewport must preserve every station ID while reducing visual clutter.
 test('mobile map clusters more aggressively than desktop without losing station IDs',()=>{
  const dense=[
-  {id:'a',lon:1.32,lat:48.8,condition:'available'},
-  {id:'b',lon:1.42,lat:48.8,condition:'empty'},
+  // 30px apart: distinct at 50px desktop overview cells, together at 62px mobile.
+  {id:'a',lon:1.20,lat:48.8,condition:'available'},
+  {id:'b',lon:1.50,lat:48.8,condition:'empty'},
  ];
  const project=([lon])=>({x:lon*100,y:100});
  const desktop=layoutMapMarkers(dense,project,1000,200,11);
@@ -177,7 +178,7 @@ test('C2.6: network overview reduces pins, zoom reveals stations, and IDs remain
   condition:i%9===0?'unknown':i%7===0?'empty':'available',
  }));
  const project=([lon,lat])=>({x:(lon-2.2)*5000,y:(lat-48.7)*3500});
- const width=900,height=500;
+ const width=900,height=800; // All projected test stations are actually inside this viewport.
  const overview=layoutMapMarkers(realLike,project,width,height,11);
  const medium=layoutMapMarkers(realLike,project,width,height,13);
  const close=layoutMapMarkers(realLike,project,width,height,16);
