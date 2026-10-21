@@ -94,8 +94,8 @@ test('P6.8 viewport counters exclude offscreen data and correctly count clusters
 // A narrow viewport must preserve every station ID while reducing visual clutter.
 test('mobile map clusters more aggressively than desktop without losing station IDs',()=>{
  const dense=[
-  {id:'a',lon:1.01,lat:48.8,condition:'available'},
-  {id:'b',lon:1.31,lat:48.8,condition:'empty'},
+  {id:'a',lon:1.32,lat:48.8,condition:'available'},
+  {id:'b',lon:1.42,lat:48.8,condition:'empty'},
  ];
  const project=([lon])=>({x:lon*100,y:100});
  const desktop=layoutMapMarkers(dense,project,1000,200,11);
