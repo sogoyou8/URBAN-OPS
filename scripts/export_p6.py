@@ -129,8 +129,9 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
         history.append({
             "at": at, "observed": int(fact["observed"]),
             "usable": int(fact["usable"] or 0),
-            "bikes": int(fact["bikes"] or 0), "docks": int(fact["docks"] or 0),
-            "empty": int(fact["empty"] or 0),
+            "bikes": int(fact["bikes"] or 0) if int(fact["usable"] or 0)>0 else None,
+            "docks": int(fact["docks"] or 0) if int(fact["usable"] or 0)>0 else None,
+            "empty": int(fact["empty"] or 0) if int(fact["usable"] or 0)>0 else None,
             "gap_minutes": delta, "connected_to_previous": delta is not None and 0 < delta <= 20,
         })
         prev = at
@@ -149,9 +150,12 @@ def export(database_url: str, *, history_limit: int = MAX_HISTORY, now: datetime
         "run_id": latest["run_id"],
         "history_note": "Up to 96 archived captures; gaps are not interpolated.",
         "metrics": {"stations": len(stations), "observed": observed, "usable": usable,
-                    "unusable": observed - usable, "bikes": int(current["bikes"] or 0),
-                    "docks": int(current["docks"] or 0), "empty": int(current["empty"] or 0),
+                    "unusable": observed - usable, "bikes": int(current["bikes"] or 0) if usable>0 else None,
+                    "docks": int(current["docks"] or 0) if usable>0 else None,
+                    "empty": int(current["empty"] or 0) if usable>0 else None,
                     "capture_count": len(history)},
+        "capture_quality": {"status": "no_usable_stations" if usable == 0 else "usable",
+                            "message": "Aucune station avec données utilisables dans cette capture" if usable == 0 else None},
         "stations": stations, "history": history, "issues": issues,
         "quality_diagnostics": {
             "not_observed": not_observed,
