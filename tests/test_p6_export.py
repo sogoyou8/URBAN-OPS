@@ -120,6 +120,7 @@ def test_sql_forensic_anomaly_neighbors_do_not_invent_cause(tmp_path):
     with sqlite3.connect(p) as db:
         db.execute("ALTER TABLE ingestion_runs ADD COLUMN station_information_count INT")
         db.execute("ALTER TABLE ingestion_runs ADD COLUMN inserted_status_count INT")
+        db.execute("ALTER TABLE fact_station_status ADD COLUMN feed_updated_at TEXT")
         db.execute("UPDATE fact_station_status SET is_usable=0 WHERE run_id='b'")
         db.commit()
     audit=diagnose('sqlite:///'+str(p))
