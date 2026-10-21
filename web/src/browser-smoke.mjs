@@ -217,6 +217,27 @@ try{
  assert.equal(await fallbackPage.$$eval('.fallback-point',els=>els.length),4);
  await fallbackPage.click('.fallback-point[aria-label="Inspecter Bercy – Test"]');
  assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/Bercy – Test/);
+ // Reproduce a dense network in the *synthetic* fallback-only fixture:
+ // hundreds of DOM markers should reduce to accessible geographic groups.
+ const dense=Array.from({length:140},(_,i)=>({
+   ...stations[0],id:String(1000+i),code:String(5000+i),
+   name:'Groupe dense '+i,lat:48.86+(i%11)*0.000015,
+   lon:2.32+(i%13)*0.000015,
+ }));
+ fixture.stations.push(...dense);
+ fixture.metrics.stations+=dense.length;
+ fixture.metrics.observed+=dense.length;
+ fixture.metrics.usable+=dense.length;
+ fixture.metrics.bikes+=dense.length*5;
+ fixture.metrics.docks+=dense.length*10;
+ await fallbackPage.reload({waitUntil:'load'});
+ await fallbackPage.waitForFunction(()=>!document.querySelector('#map-fallback').hidden,{timeout:10000});
+ const fallbackCount=await fallbackPage.$('.fallback-point');
+ assert.ok(fallbackCount.length<fixture.stations.length/2,'Fallback should cluster dense stations');
+ assert.ok(await fallbackPage.$('.fallback-point.cluster'),'Fallback groups must be accessible');
+ await fallbackPage.click('.fallback-point.cluster');
+ assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/stations à cet emplacement/);
+ assert.ok(await fallbackPage.$('[data-dismiss-cluster]'));
  await fallbackPage.close();
  console.log('P6.6 BROWSER PASS: canvas marks, mono-screen, 4 tabs, sectors, quality, P5 gate, search, selection/back.');
 }finally{
