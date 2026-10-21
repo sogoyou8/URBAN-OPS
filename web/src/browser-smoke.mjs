@@ -391,6 +391,27 @@ try{
  assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/stations à cet emplacement/);
  assert.ok(await fallbackPage.$('[data-dismiss-cluster]'));
  await fallbackPage.close();
+ // Regression: a real successful archive may still have ZERO usable station measures.
+ fixture.stations=stations.map(p=>({...p,usable:false,condition:'unknown',
+   bikes:null,docks:null,mechanical:null,electric:null}));
+ fixture.metrics={stations:4,observed:4,usable:0,unusable:4,bikes:null,docks:null,
+   empty:null,capture_count:5};
+ fixture.capture_quality={status:'no_usable_stations'};
+ fixture.captured_at='2026-10-20T01:20:00Z';
+ fixture.history.push({at:'2026-10-20T01:20:00Z',usable:0,observed:4,
+   bikes:null,docks:null,empty:null,gap_minutes:5,connected_to_previous:true});
+ await page.reload({waitUntil:'load'});
+ await page.waitForFunction(()=>document.getElementById('freshness-label')?.textContent==='CAPTURE INEXPLOITABLE');
+ assert.equal(await page.$eval('#stat-bikes',e=>e.textContent),'—');
+ assert.equal(await page.$eval('#stat-empty',e=>e.textContent),'—');
+ assert.equal(await page.$eval('.metric:last-child .metric-figure',e=>e.textContent),'0');
+ assert.match(await page.$eval('#capture-time',e=>e.textContent),/aucune station mesurée/);
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/Données indisponibles/);
+ assert.doesNotMatch(await page.$eval('#history-inspection',e=>e.textContent),/0 vélos comptés/);
+ assert.equal(await page.$eval('#timeline-count',e=>e.textContent),'5',
+   'Unusable capture remains in real sequence');
+ assert.equal(await page.$eval('#timeline-quality',e=>e.textContent),'2');
+ assert.equal(await page.$eval('.history-bike-dot',els=>els.length),5);
  console.log('P6.6 BROWSER PASS: canvas marks, mono-screen, 4 tabs, sectors, quality, P5 gate, search, selection/back.');
 }finally{
  if(browser)await browser.close();
