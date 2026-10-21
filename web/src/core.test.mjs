@@ -169,3 +169,28 @@ test('C2.5: unknown or sparse history returns a safe and explicit scale',()=>{
  assert.equal(one.referenceCount,1);
  assert.equal(one.offScaleCount,0);
 });
+
+
+test('C2.6: network overview reduces pins, zoom reveals stations, and IDs remain exact',()=>{
+ const realLike=Array.from({length:1536},(_,i)=>({
+  id:'s'+i,lon:2.22+(i%48)*.003,lat:48.78+Math.floor(i/48)*.004,
+  condition:i%9===0?'unknown':i%7===0?'empty':'available',
+ }));
+ const project=([lon,lat])=>({x:(lon-2.2)*5000,y:(lat-48.7)*3500});
+ const width=900,height=500;
+ const overview=layoutMapMarkers(realLike,project,width,height,11);
+ const medium=layoutMapMarkers(realLike,project,width,height,13);
+ const close=layoutMapMarkers(realLike,project,width,height,16);
+ assert.ok(overview.length<medium.length,'Overview should avoid crowding');
+ assert.ok(medium.length<close.length,'Zoom reveals detailed markers');
+ assert.ok(overview.length<realLike.length*.5,'Metropolitan overview aggregates dense places');
+ for(const grouped of [overview,medium,close]){
+  const actual=grouped.flatMap(p=>p.ids);
+  assert.equal(actual.length,realLike.length,'No station is dropped on grouping');
+  assert.equal(new Set(actual).size,realLike.length,'No station is duplicated by grouping');
+  assert.equal(grouped.reduce((n,p)=>n+p.count,0),realLike.length);
+ }
+ const selected=layoutMapMarkers(realLike,project,width,height,11,'s50');
+ const alone=selected.find(p=>p.selected);
+ assert.deepEqual(alone.ids,['s50'],'Selected real station remains independently accessible');
+});
