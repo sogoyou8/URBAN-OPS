@@ -520,3 +520,60 @@ html,body{max-width:100%;overflow-x:clip}
   .history-capture-control input{width:62%;max-width:240px}
   .timeline-meta small{font-size:8px}
 }
+
+
+/* C2.6 — Keep map exploration dominant by default, preserve selected C2.5 design.
+ * Compact / expanded states change space only, not the history or map data.
+ */
+.history-title-actions{
+  display:flex;align-items:center;justify-content:space-between;
+  flex-wrap:wrap;gap:6px;min-width:0;
+}
+.history-size-toggle{
+  display:inline-flex;align-items:center;gap:5px;
+  background:#112a2c;border:1px solid #38585a;
+  color:#aee4c7;padding:6px 7px;white-space:nowrap;
+  font:9px var(--mono);line-height:1.15;
+}
+.history-size-toggle:hover,
+.history-size-toggle[aria-pressed="true"]{background:#215043;border-color:#84c9a7;color:#f0fff5}
+.history-size-toggle:focus-visible{outline:2px solid #aee4c7;outline-offset:2px}
+.timeline-plot .history-scale-note{display:block;max-width:100%;
+  overflow:hidden;text-overflow:ellipsis}
+@media(min-width:861px){
+  .bottomline.history-compact{height:clamp(182px,22dvh,214px);min-height:182px}
+  .bottomline.history-expanded{height:clamp(252px,30dvh,292px);min-height:252px}
+  .bottomline.history-compact .timeline-title{padding:11px 14px}
+  .bottomline.history-compact .timeline-title h2{margin:5px 0 4px;font-size:15px}
+  .bottomline.history-compact .timeline-title p{font-size:9px}
+  .bottomline.history-compact .history-inspection{padding-top:7px;gap:3px}
+  .bottomline.history-compact .history-inspection-bikes{font-size:19px}
+  .bottomline.history-compact .timeline-meta{gap:4px;padding:10px 9px}
+  .bottomline.history-compact .timeline-meta strong{font-size:18px}
+  .bottomline.history-compact .timeline-meta small{font-size:8px}
+  .bottomline.history-compact .timeline-plot{padding:5px 11px;gap:2px}
+  .bottomline.history-compact .history-plot-head{font-size:10px}
+  .bottomline.history-compact .history-plot-foot{padding-top:3px}
+  .bottomline.history-compact .history-legend{font-size:9px;gap:4px 8px}
+  .bottomline.history-compact .history-capture-control input{width:84px}
+}
+@media(min-width:861px) and (max-width:1120px){
+  .history-title-actions{align-items:start}
+  .history-size-toggle{font-size:8px;padding:4px 5px}
+  .bottomline.history-compact .history-inspection-bikes{font-size:16px}
+  .bottomline.history-compact .history-inspection-title,
+  .bottomline.history-compact .history-inspection-count{font-size:9px}
+}
+@media(min-width:861px) and (max-height:740px){
+  .bottomline.history-compact{height:160px;min-height:160px}
+  .bottomline.history-expanded{height:195px;min-height:195px}
+  .bottomline.history-compact .history-inspection{margin-top:5px;padding-top:4px;gap:2px}
+  .bottomline.history-compact .timeline-plot{padding:3px 7px}
+  .bottomline.history-compact .history-plot-foot{gap:4px}
+}
+@media(max-width:860px){
+  /* Small screens already stack the full-width charts; don't hide them. */
+  .history-size-toggle{display:none}
+  .bottomline.history-compact,.bottomline.history-expanded{height:auto;min-height:0}
+  .history-title-actions{display:block}
+}
