@@ -1,5 +1,5 @@
 /** P6 pure selectors — no generated statistics, only dataset transformations. */
-export const STATUS = Object.freeze({available:'Disponible', empty:'Sans vélo', unknown:'Non qualifiée'});
+export const STATUS = Object.freeze({available:'Disponible', empty:'Sans vélo', unknown:'Donnée inconnue'});
 
 export function validateDataset(raw) {
   if (!raw || raw.schema_version !== 1 || raw.dataset_type !== 'archived_p3_observations' ||
@@ -174,18 +174,18 @@ export const ISSUE_LABELS = Object.freeze({
   stale_station_report:'Signal station trop ancien',
   over_declared_capacity:'Total vélos + bornes supérieur à la capacité',
   invalid_station_metadata:'Informations de station invalides',
-  missing_station_information:'Station absente du référentiel',
-  missing_station_status:'Statut de station absent',
+  missing_station_information:'Station absente de la liste',
+  missing_station_status:'Données de station manquantes',
   invalid_counts:'Nombres de vélos ou bornes invalides',
-  invalid_station_timestamp:'Horodatage station invalide',
+  invalid_station_timestamp:'Date du relevé incorrecte',
   invalid_operational_flag:'État de service invalide',
   bike_types_disagree:'Types de vélos incohérents',
   station_code_mismatch:'Identifiants de station incohérents',
-  invalid_or_duplicate_information_id:'Identifiant de station absent ou dupliqué',
-  invalid_or_duplicate_status_id:'Identifiant de statut absent ou dupliqué',
+  invalid_or_duplicate_information_id:'Numéro de station manquant ou présent plusieurs fois',
+  invalid_or_duplicate_status_id:'Numéro du relevé manquant ou présent plusieurs fois',
   alias_bikes_mismatch:'Nombre de vélos incohérent entre les deux champs source',
   alias_docks_mismatch:'Nombre de bornes incohérent entre les deux champs source',
-  station_report_future_of_feed:'Signal station daté après le flux source',
+  station_report_future_of_feed:'Date du relevé plus récente que celle des données reçues',
 });
 export function issueLabel(code){return ISSUE_LABELS[code] ?? String(code).replaceAll('_',' ');}
 
@@ -208,14 +208,14 @@ export function p5Gate(data){
  * a station's availability; flags and per-station events come from the same run. */
 export function qualityReasons(station){
   const reasons=[];
-  if(!station.observed)return ['Aucun statut enregistré pour cette station dans la capture.'];
-  if(station.is_operational===false)reasons.push('Service interrompu : la station ne permet pas les opérations normales.');
+  if(!station.observed)return ['Aucune donnée reçue pour cette station au moment de la capture.'];
+  if(station.is_operational===false)reasons.push('Service interrompu : impossible de louer ou rendre un vélo dans cette station.');
   for(const issue of station.issues||[]){
     const label=issueLabel(issue.code);
     if(!reasons.includes(label)) reasons.push(label);
   }
-  if(!station.usable && reasons.length===0)reasons.push('Observation rejetée par les règles de qualité P3 ; motif non disponible.');
-  if(station.usable && reasons.length===0)reasons.push('Observation qualifiée, sans anomalie attachée.');
+  if(!station.usable && reasons.length===0)reasons.push('Les chiffres reçus pour cette station ne peuvent pas être utilisés. Le détail n’est pas disponible.');
+  if(station.usable && reasons.length===0)reasons.push('Les chiffres de cette station peuvent être utilisés.');
   return reasons;
 }
 

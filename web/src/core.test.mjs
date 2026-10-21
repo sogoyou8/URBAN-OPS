@@ -69,7 +69,7 @@ test('P5 gating is filename-only evidence, never ML validation',()=>{
   assert.equal(p5Gate({p5_readiness:{...inv.p5_readiness,captures:-10}}).available,false);
 });
 test('unobserved station and rejected station have distinct explanations',()=>{
-  assert.match(qualityReasons({...stations[2],observed:false})[0],/Aucun statut/);
+  assert.match(qualityReasons({...stations[2],observed:false})[0],/Aucune donnée reçue/);
   const q=qualityReasons({...stations[2],observed:true,is_operational:false,
     issues:[{code:'stale_station_report',severity:'warning'}]});
   assert.ok(q.some(x=>/Service interrompu/.test(x)));
@@ -139,4 +139,10 @@ test('C2.3: an actual gap remains a gap even with stable coverage',()=>{
  const vals=[{bikes:30,usable:1490,connected_to_previous:false},
              {bikes:31,usable:1490,connected_to_previous:false}];
  assert.deepEqual(assessHistory(vals,1515).points.map(p=>p.connected_to_previous),[false,false]);
+});
+
+test('C2.4: missing station information remains unknown, not zero',()=>{
+ assert.equal(qualityReasons({...stations[2],observed:false})[0].includes('Aucune donnée'),true);
+ assert.equal(qualityReasons({...stations[2],observed:true,usable:false,issues:[]})[0].includes('ne peuvent pas être utilisés'),true);
+ assert.equal(summary(stations).bikes,5);
 });
