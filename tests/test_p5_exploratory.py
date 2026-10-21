@@ -12,7 +12,7 @@ from scripts.p5_exploratory import run, verified_replay
 T = datetime(2026, 10, 21, 7, tzinfo=timezone.utc)
 
 
-def fixture(tmp_path, count=20):
+def fixture(tmp_path, count=60):
     db = tmp_path / "fixture.sqlite"
     with sqlite3.connect(db) as c:
         c.executescript("""
@@ -42,7 +42,7 @@ def test_exploratory_is_real_pair_preflight_not_model_promotion(tmp_path):
     db,evidence=fixture(tmp_path)
     output=tmp_path/"report"
     result=run(db,output,evidence)
-    assert result["replay_archives_verified"]==20
+    assert result["replay_archives_verified"]==60
     assert result["production_status"]=="NOT_VALIDATED"
     assert result["safe_to_publish_forecasts"] is False
     assert result["prediction_rows"]==0
