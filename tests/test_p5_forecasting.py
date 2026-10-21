@@ -210,3 +210,49 @@ def test_perfect_persistence_baseline_blocks_fake_ml_skill():
     assert result['holdout']['mae_skill_vs_persistence'] is None
     assert result['status']=='baseline_wins_or_uncertain'
     assert model is None
+
+
+def test_many_captures_in_the_same_five_minute_slots_cannot_unlock_p5():
+    # 935 unique UTC instants over >= 7 days, but only 85 distinct five-minute
+    # bins. The previous len(times)/span calculation could report >40%.
+    bursty = [
+        T + timedelta(hours=2 * block, seconds=second)
+        for block in range(85)
+        for second in range(11)
+    ]
+    outcome = readiness(bursty)
+    assert outcome["captures"] == 935
+    assert outcome["span_days"] >= 7
+    assert outcome["distinct_5m_slots"] == 85
+    assert outcome["repeated_5m_slot_captures"] == 850
+    assert outcome["coverage_estimate"] < 0.10
+    assert outcome["reason"] == "insufficient_capture_coverage"
+    assert outcome["ready"] is False
+
+
+def test_readiness_explains_remaining_span_and_capture_requirements():
+    samples = [T, T + timedelta(days=1)]
+    info = readiness(samples)
+    assert info["remaining_captures_to_min"] == 898
+    assert info["hours_to_minimum_span"] == 144.0
+    assert info["earliest_span_eligibility_utc"] == (T+timedelta(days=7)).isoformat()
+    assert info["expected_5m_slots"] == 289
+    assert info["distinct_5m_slots"] == 2
+
+
+def test_empty_readiness_exposes_safe_nulls():
+    report = readiness([])
+    assert report["ready"] is False
+    assert report["distinct_5m_slots"] == 0
+    assert report["expected_5m_slots"] is None
+    assert report["earliest_span_eligibility_utc"] is None
+
+
+
+def test_inventory_summary_is_a_preflight_not_a_model_result():
+    from scripts.p5_inventory import inventory_summary
+    report = inventory_report([], T)
+    summary = inventory_summary(report)
+    assert "no_real_captures" in summary
+    assert "Aucune archive ni observation P5" in summary
+    assert "non mesurable" in summary
