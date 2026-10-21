@@ -502,15 +502,17 @@ function renderTimeline() {
     <text x="${left-5}" y="${bottom+3}" font-size="9" text-anchor="end" fill="#b5ced0">0</text>
     ${lines}${dots}
     <line x1="${left}" x2="${W-right}" y1="80" y2="80" stroke="#264a5a"/>${coverageDots}
-    <text x="${left}" y="${H-1}" font-size="8" fill="#9fbec1">${html(localTime(valid[0].at))}</text>
-    <text x="${W-right}" y="${H-1}" font-size="8" text-anchor="end" fill="#9fbec1">${html(localTime(valid.at(-1).at))}</text>
-  </svg>`;
+  </svg>
+  <div class="timeline-dates" aria-hidden="true"><span>${html(localTime(valid[0].at))}</span><span>${html(localTime(valid.at(-1).at))}</span></div>`;
   const gapCount=gaps.filter(x=>x>20).length,notes=[];
-  if(assessment.reducedCount)notes.push(`${assessment.reducedCount} capture(s) incomplète(s) (en orange)`);
-  if(gapCount)notes.push(`${gapCount} pause(s) de plus de 20 min`);
-  if(assessment.unknownCount)notes.push('nombre de stations inconnu pour certaines captures');
-  $('timeline-explain').textContent=notes.length?notes.join(' · ')+'.':
-    'Vélos comptés à chaque capture · points du bas : stations mesurées.';
+  if(assessment.reducedCount){
+    const n=assessment.reducedCount;
+    notes.push(`${display(n)} ${n===1?'capture incomplète':'captures incomplètes'} (orange)`);
+  }
+  if(gapCount)notes.push(`${display(gapCount)} ${gapCount===1?'pause':'pauses'} de plus de 20 min`);
+  if(assessment.unknownCount)notes.push('données manquantes pour certaines captures');
+  const legend='Points du bas : stations mesurées.';
+  $('timeline-explain').textContent=notes.length?notes.join(' · ')+'. '+legend:legend;
 }
 
 function renderAll(){updateNav();syncFilterButtons();paintStats();renderInspector();renderTimeline();repaintMap();}
