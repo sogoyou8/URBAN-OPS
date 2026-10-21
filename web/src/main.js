@@ -7,6 +7,51 @@ const COLORS = {available:'#94dabb',empty:'#efac84',unknown:'#78919c'};
 const state = { dataset:null, stations:[], view:'reseau', query:'', filter:'all', sector:'all', selected:null,
                 map:null, mapReady:false, mapFailed:false, markerCanvas:null, markerPositions:[], clusterIds:null };
 
+
+const GUIDE_CONTEXT={
+  reseau:['Réseau','Chaque repère représente une station ou un groupe de stations Vélib’. Sélectionnez une station pour consulter les vélos, les bornes libres, la date du signal et sa qualité.'],
+  territoires:['Territoires','Comparez quatre quadrants calculés à partir des coordonnées des stations. Ils ne correspondent pas aux arrondissements ou aux communes.'],
+  fiabilite:['Fiabilité','Une mesure reçue mais rejetée est différente d’une station sans observation. Les anomalies sont des événements et peuvent se cumuler sur une station.'],
+  previsions:['Prévisions','L’horizon de 30 minutes est un objectif de modélisation. Les compteurs d’archives indiquent une préparation, pas une preuve de performance prédictive.']
+};
+let guideReturnFocus=null;
+function updateGuideContext(){
+  const [title,body]=GUIDE_CONTEXT[state.view];
+  $('guide-context-title').textContent=title;
+  $('guide-context-text').textContent=body;
+}
+function openGuide(){
+  if(!$('understand-dialog').hidden)return;
+  guideReturnFocus=document.activeElement;
+  updateGuideContext();
+  $('understand-dialog').hidden=false;
+  document.querySelector('.shell').inert=true;
+  $('open-guide').setAttribute('aria-expanded','true');
+  $('close-guide').focus();
+}
+function closeGuide(){
+  if($('understand-dialog').hidden)return;
+  $('understand-dialog').hidden=true;
+  document.querySelector('.shell').inert=false;
+  $('open-guide').setAttribute('aria-expanded','false');
+  (guideReturnFocus&&guideReturnFocus.isConnected?guideReturnFocus:$('open-guide')).focus();
+}
+function trapGuideFocus(event){
+  if($('understand-dialog').hidden)return false;
+  if(event.key==='Escape'){event.preventDefault();closeGuide();return true;}
+  if(event.key!=='Tab')return false;
+  const focusables=[...$('understand-dialog').querySelectorAll('a[href],button:not([disabled])')]
+    .filter(el=>el.getClientRects().length>0);
+  if(!focusables.length)return false;
+  const first=focusables[0],last=focusables.at(-1);
+  if(event.shiftKey&&(document.activeElement===first||!$('understand-dialog').contains(document.activeElement))){
+    event.preventDefault();last.focus();
+  }else if(!event.shiftKey&&(document.activeElement===last||!$('understand-dialog').contains(document.activeElement))){
+    event.preventDefault();first.focus();
+  }
+  return true;
+}
+
 function updateFreshness() {
   if(!state.dataset)return;
   const at=state.dataset.captured_at;
@@ -512,6 +557,9 @@ for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener(
   state.filter=btn.dataset.filter;syncFilterButtons();
   state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
 });
+$('open-guide').addEventListener('click',openGuide);
+$('close-guide').addEventListener('click',closeGuide);
+$('understand-dialog').querySelector('[data-guide-close="backdrop"]').addEventListener('click',closeGuide);
 $('reload').addEventListener('click',refresh);
 window.addEventListener('resize',()=>{
   if(state.mapFailed&&state.dataset)fallbackMap(filtered());
@@ -532,6 +580,7 @@ $('map-reset').addEventListener('click',()=>{
   renderInspector();resetInspectorScroll();repaintMap();
 });
 document.addEventListener('keydown',event=>{
+  if(!$('understand-dialog').hidden){trapGuideFocus(event);return;}
   if(event.key==='Escape' && (state.selected || state.clusterIds)){
     const previous=state.selected;
     state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
