@@ -246,3 +246,13 @@ def test_empty_readiness_exposes_safe_nulls():
     assert report["distinct_5m_slots"] == 0
     assert report["expected_5m_slots"] is None
     assert report["earliest_span_eligibility_utc"] is None
+
+
+
+def test_inventory_summary_is_a_preflight_not_a_model_result():
+    from scripts.p5_inventory import inventory_summary
+    report = inventory_report([], T)
+    summary = inventory_summary(report)
+    assert "no_real_captures" in summary
+    assert "Aucune archive ni observation P5" in summary
+    assert "non mesurable" in summary
