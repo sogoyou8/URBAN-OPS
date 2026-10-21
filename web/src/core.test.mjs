@@ -90,3 +90,19 @@ test('P6.8 viewport counters exclude offscreen data and correctly count clusters
  assert.equal(layoutMapMarkers([pts[0]],()=>({x:-0.01,y:100}),300,300).length,0);
  assert.equal(layoutMapMarkers([pts[0]],()=>({x:300.01,y:100}),300,300).length,0);
 });
+
+// A narrow viewport must preserve every station ID while reducing visual clutter.
+test('mobile map clusters more aggressively than desktop without losing station IDs',()=>{
+ const dense=[
+  {id:'a',lon:1.01,lat:48.8,condition:'available'},
+  {id:'b',lon:1.31,lat:48.8,condition:'empty'},
+ ];
+ const project=([lon])=>({x:lon*100,y:100});
+ const desktop=layoutMapMarkers(dense,project,1000,200,11);
+ const mobile=layoutMapMarkers(dense,project,340,200,11);
+ assert.equal(desktop.length,2);
+ assert.equal(mobile.length,1);
+ assert.equal(mobile[0].count,2);
+ assert.deepEqual(mobile[0].ids,['a','b']);
+ assert.equal(viewportCounts(dense.length,mobile).visible,2);
+});
