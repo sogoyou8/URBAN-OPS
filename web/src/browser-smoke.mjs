@@ -420,7 +420,7 @@ try{
  assert.equal(await page.$eval('#timeline-count',e=>e.textContent),'5',
    'Unusable capture remains in real sequence');
  assert.equal(await page.$eval('#timeline-quality',e=>e.textContent),'2');
- assert.equal(await page.$eval('.history-bike-dot',els=>els.length),5);
+ assert.equal(await page.$$eval('.history-bike-dot',els=>els.length),5);
  console.log('P6.6 BROWSER PASS: canvas marks, mono-screen, 4 tabs, sectors, quality, P5 gate, search, selection/back.');
 }finally{
  if(browser)await browser.close();
