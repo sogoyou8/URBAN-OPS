@@ -10,10 +10,10 @@ La source exacte du trou ne peut pas être établie uniquement à partir des run
 
 - `.github/workflows/collect.yml` reste un **pilote best effort** de cadence cible cinq minutes, sur `main`.
 - `.github/workflows/collector-health.yml` audite les **assets réellement persistés**, pas les jobs démarrés ou un compteur théorique de captures.
-- `scripts/audit_collector.py` relève les captures uniques, le dernier instant, l'âge de l'archive, les écarts entre captures, l'estimation de couverture depuis la première capture présente dans la fenêtre 24 h.
-- **Une seule archive ne vaut jamais 100 % de couverture**. Le calcul indique si la fenêtre de 24 h est complète.
+- `scripts/audit_collector.py` relève les captures uniques, le dernier instant, l'âge de l'archive, les écarts entre captures et **les créneaux UTC distincts de cinq minutes**. Plusieurs archives dans un même créneau ne font pas artificiellement monter la couverture.
+- **Une seule archive ne vaut jamais 100 % de couverture**. Le rapport distingue la couverture sur la période observée de celle des **24 h intégrales** et signale précisément le plus grand trou.
 - La pagination des assets de Releases évite de s'arrêter arbitrairement au centième fichier.
-- Le contrôle passe en erreur quand la dernière archive a plus de **90 minutes** ; une couverture dégradée émet un avertissement. La notification dépend des réglages GitHub de l'utilisateur.
+- Le contrôle passe en erreur quand la dernière archive a plus de **90 minutes** **ou** quand la couverture observée tombe sous 80 % **ou** quand un écart entre captures dépasse 15 minutes. Ces seuils pilotent uniquement l'alerte, **pas** l'acceptation des données par P5. L'alerte est visible dans GitHub Actions ; la notification dépend des réglages GitHub de l'utilisateur.
 - Aucun faux remplissage des périodes sans données, aucun déploiement Vercel, Railway ou service payant.
 
 ## Limite fondamentale
@@ -29,3 +29,11 @@ L'audit n'ajoute **aucune garantie de déclenchement**. Les deux workflows utili
 5. Si l'utilisateur demande une vraie continuité de collecte, comparer ensuite les hébergements persistants/cron externes, et demander l'accord avant tout frais ou connexion supplémentaire.
 
 Le rapport est basé uniquement sur les archives retrouvées, sans estimation de trajets ni d'activité d'usagers.
+
+## Diagnostic des captures du 20 octobre 2026
+
+Sur les archives persistées dans GitHub Releases (pas sur une simulation), nous avons observé **261 fichiers** pour le 20 octobre, contre **288 créneaux de cinq minutes possibles**. Le principal trou court de **00:34:04 à 02:41:11 UTC**, soit environ **127 minutes** entre deux captures persistées. Une interruption plus courte d'environ 10 minutes est visible vers 18:51–19:01 UTC. L'archive seule ne prouve pas la cause : retard/absence de déclenchement GitHub, échec de collecte ou de publication seraient à distinguer dans les logs des exécutions.
+
+**Ne jamais reconstruire les valeurs manquantes à partir du dernier état courant**. Ce correctif améliore seulement l'observabilité et les alertes ; il n'ajoute pas de scheduler secondaire, de stockage ou de coût.
+
+Dans GitHub, consulter [l'audit P3.5](https://github.com/sogoyou8/URBAN-OPS/actions/workflows/collector-health.yml). Les échecs du job `audit` signalent soit une archive trop ancienne, soit une discontinuité ou couverture dégradée. Examiner aussi les `collect.yml` et la Release du jour pour rechercher la cause, sans confondre une exécution manquée avec une panne du pipeline.

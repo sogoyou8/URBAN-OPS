@@ -76,13 +76,22 @@ def fetch_inventory(repo: str, token: str, now: datetime, window_hours: int) -> 
 
 def audit(inventory: list, now: datetime | None = None, window_hours: int = 24,
           cadence_minutes: int = 5, stale_minutes: int = 60,
-          coverage_target: float = 0.80) -> dict:
+          coverage_target: float = 0.80,
+          maximum_healthy_gap_minutes: int = 15) -> dict:
+    """Audit *persisted timestamps*. One UTC cadence bin can count only once.
+
+    "coverage_estimate" preserves the observed-period view during initial
+    warmup. "coverage_full_window" counts the entire requested lookback and
+    makes late starting collection visible without falsely filling anything.
+    """
     now = now or datetime.now(UTC)
     if now.tzinfo is None:
         raise ValueError("now must have a UTC offset")
     now = now.astimezone(UTC)
-    if window_hours < 1 or cadence_minutes < 1 or stale_minutes < 1:
-        raise ValueError("Audit horizon and minutes must be positive")
+    if (window_hours < 1 or cadence_minutes < 1 or stale_minutes < 1
+            or maximum_healthy_gap_minutes < cadence_minutes
+            or not 0 < coverage_target <= 1):
+        raise ValueError("Invalid audit horizon, cadence, gap or target")
     since = now - timedelta(hours=window_hours)
     captured = set()
     invalid = []
@@ -101,65 +110,103 @@ def audit(inventory: list, now: datetime | None = None, window_hours: int = 24,
             if dt.date().isoformat() != m.group(1) or dt > now + timedelta(minutes=5):
                 invalid.append(name)
                 continue
-            if dt >= since:
+            if since <= dt <= now:
                 captured.add(dt)
+
     instants = sorted(captured)
     count = len(instants)
     latest = instants[-1] if instants else None
-    # A single capture gives no evidence of continuity.
     window_start = max(since, instants[0]) if instants else since
     span_minutes = (now - window_start).total_seconds() / 60
-    expected = (1 + math.floor(span_minutes / cadence_minutes)) if count else None
-    # One point has no observed interval: reporting 100% would be misleading.
-    coverage = min(1.0, count / expected) if expected and count >= 2 else None
-    gaps = [round((b - a).total_seconds() / 60, 2)
-            for a, b in zip(instants, instants[1:])]
+    cadence_seconds = cadence_minutes * 60
+    bin_index = lambda dt: int(dt.timestamp() // cadence_seconds)
+    unique_bins = {bin_index(t) for t in instants}
+    observed_slots = (
+        bin_index(now) - bin_index(window_start) + 1 if instants else None
+    )
+    full_window_slots = bin_index(now) - bin_index(since) + 1
+    # Never present a singleton as meaningful coverage.
+    coverage = (len(unique_bins) / observed_slots
+                if count >= 2 and observed_slots else None)
+    full_coverage = len(unique_bins) / full_window_slots if count >= 2 else None
+    gaps = [(a, b, (b-a).total_seconds()/60) for a, b in zip(instants, instants[1:])]
+    maximum_gap = max(gaps, key=lambda item: item[2]) if gaps else None
     age = round((now - latest).total_seconds() / 60, 2) if latest else None
+    observed_full_window = (
+        count >= 2 and instants[0] <= since + timedelta(minutes=cadence_minutes)
+    )
     if latest is None:
         status = "no_archives"
     elif age > stale_minutes:
         status = "stale"
     elif span_minutes < 3 * 60:
         status = "warming_up"
-    elif coverage is not None and coverage < coverage_target:
+    elif (coverage is not None and coverage < coverage_target
+          or maximum_gap is not None and maximum_gap[2] > maximum_healthy_gap_minutes):
         status = "degraded"
     else:
         status = "on_track"
+
     return {
         "status": status,
         "target_cadence_minutes": cadence_minutes,
         "window_hours": window_hours,
         "observation_window_start_utc": window_start.isoformat(),
-        "window_is_full": window_start == since,
+        "window_is_full": observed_full_window,
         "capture_count": count,
+        "distinct_cadence_slots": len(unique_bins),
+        "duplicate_cadence_slot_captures": count - len(unique_bins),
         "latest_capture_utc": latest.isoformat() if latest else None,
         "latest_capture_age_minutes": age,
-        "expected_slots_estimate": expected,
+        "expected_slots_estimate": observed_slots,
+        "full_window_expected_slots": full_window_slots,
         "coverage_estimate": round(coverage, 4) if coverage is not None else None,
-        "largest_observed_gap_minutes": max(gaps, default=None),
-        "gaps_over_10_minutes": sum(g > 10 for g in gaps),
+        "coverage_full_window": round(full_coverage, 4) if full_coverage is not None else None,
+        "missing_observed_slots": (max(0, observed_slots - len(unique_bins))
+                                   if observed_slots is not None else None),
+        "largest_observed_gap_minutes": round(maximum_gap[2], 2) if maximum_gap else None,
+        "largest_gap_from_utc": maximum_gap[0].isoformat() if maximum_gap else None,
+        "largest_gap_to_utc": maximum_gap[1].isoformat() if maximum_gap else None,
+        "gaps_over_10_minutes": sum(g[2] > 10 for g in gaps),
+        "gaps_over_healthy_limit": sum(g[2] > maximum_healthy_gap_minutes for g in gaps),
+        "maximum_healthy_gap_minutes": maximum_healthy_gap_minutes,
         "invalid_asset_names": invalid[:10],
-        "limitation": ("Coverage is indicative, bounded by the first observed snapshot "
-                       "and current time; only actual archives count. GitHub scheduling "
-                       "is best effort. No missing snapshots are backfilled."),
+        "limitation": ("Counts only distinct UTC five-minute slots containing actual "
+                       "GitHub Release assets. Last asset age and gaps are observed; "
+                       "cause of a missed schedule is not established. GitHub scheduling "
+                       "is best effort. No past snapshot is reconstructed."),
     }
 
 
 def render_summary(info: dict) -> str:
     pct = ("non mesurable" if info["coverage_estimate"] is None else
            f"{info['coverage_estimate'] * 100:.1f}%")
+    full_pct = ("non mesurable" if info["coverage_full_window"] is None else
+                f"{info['coverage_full_window'] * 100:.1f}%")
     age = ("inconnue" if info["latest_capture_age_minutes"] is None else
            f"{info['latest_capture_age_minutes']} min")
+    gap_text = (
+        "non mesurable" if info["largest_observed_gap_minutes"] is None
+        else f"{info['largest_observed_gap_minutes']} min "
+             f"({info['largest_gap_from_utc']} → {info['largest_gap_to_utc']})"
+    )
     return (
         "## URBAN OPS P3.5 — audit des captures réelles\n\n"
         f"- Statut : **{info['status']}**\n"
-        f"- Archives uniques sur la période : **{info['capture_count']}**\n"
+        f"- Captures persistées distinctes : **{info['capture_count']}**\n"
+        f"- Créneaux UTC de 5 minutes distincts : **{info['distinct_cadence_slots']}** "
+        f"(doublons de créneaux : {info['duplicate_cadence_slot_captures']})\n"
         f"- Fraîcheur de la dernière archive : **{age}**\n"
-        f"- Couverture indicative cible 5 min : **{pct}** "
-        f"({info['capture_count']} / {info['expected_slots_estimate'] or '?'} créneaux)\n"
-        f"- Fenêtre 24 h complète : **{'oui' if info['window_is_full'] else 'non'}**\n"
-        f"- Plus grand écart constaté : **{info['largest_observed_gap_minutes'] or 'non mesurable'} min**\n\n"
-        "**Ce rapport ne garantit pas la cadence ni ne remplit les captures absentes.**\n"
+        f"- Couverture depuis la première archive : **{pct}** "
+        f"({info['distinct_cadence_slots']} / {info['expected_slots_estimate'] or '?'})\n"
+        f"- Couverture de toute la fenêtre demandée : **{full_pct}** "
+        f"({info['distinct_cadence_slots']} / {info['full_window_expected_slots']})\n"
+        f"- Début de fenêtre réellement observé : **{'oui' if info['window_is_full'] else 'non'}**\n"
+        f"- Plus grand écart constaté : **{gap_text}**\n"
+        f"- Écarts supérieurs à {info['maximum_healthy_gap_minutes']} min : "
+        f"**{info['gaps_over_healthy_limit']}**\n\n"
+        "**Ce rapport ne garantit pas la cadence, n'attribue pas la cause des trous "
+        "et ne remplit jamais les captures absentes.**\n"
     )
 
 
@@ -172,6 +219,8 @@ def main() -> None:
     parser.add_argument("--cadence-minutes", type=int, default=5)
     parser.add_argument("--stale-minutes", type=int, default=60)
     parser.add_argument("--fail-on-stale", action="store_true")
+    parser.add_argument("--fail-on-degraded", action="store_true",
+                        help="Fail audit if coverage or continuity is degraded")
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--summary", type=Path)
     args = parser.parse_args()
@@ -193,7 +242,9 @@ def main() -> None:
         if args.fail_on_stale:
             raise SystemExit(2)
     elif report["status"] == "degraded":
-        print("::warning::Archived snapshot coverage is below the 80% pilot target.")
+        print("::warning::Archived snapshot coverage or continuity is degraded.")
+        if args.fail_on_degraded:
+            raise SystemExit(3)
 
 
 if __name__ == "__main__":
