@@ -1,8 +1,10 @@
-# URBAN OPS — P3 Data Engineering
+# URBAN OPS — Observatoire des archives Vélib’ Métropole
 
-**Statut : pipeline publié et validé en GitHub Actions (SQLite, PostgreSQL 16 et une collecte HTTPS réelle ponctuelle).** Aucun collecteur permanent
-ni serveur distant n'a été mis en route. Ce dépôt de travail est indépendant de FPT,
-Commerce 360 et France Électricité 2024.
+**Statut au 22 octobre 2026 : observatoire P6 validé en CI, publication GitHub Pages non encore activée, prévisions P5 non validées.** Le collecteur P3 GitHub Actions fonctionne de façon récurrente en *best effort* et archive les captures réelles dans des Releases. Le projet Power BI P4 est généré automatiquement mais son rendu dans Power BI Desktop Windows reste à vérifier.
+
+**Clôture V1 et mise en ligne :** [voir les étapes réelles, les critères de gel et la procédure GitHub Pages](docs/URBAN_OPS_V1_RELEASE.md).
+
+Ce dépôt est indépendant de FPT, Commerce 360 et France Électricité 2024. Les sections historiques ci-dessous décrivent les jalons de développement et peuvent contenir des constats datant du démarrage du projet.
 
 ## Objectif
 
@@ -188,3 +190,10 @@ Le workflow P6, après rejeu SHA-256 de vraies archives P3, fabrique `dist/p6-pu
 L'étape `scripts/p5_exploratory.py`, exécutée depuis le rejeu P3 SHA-256 de P6, mesure les **vraies paires à +30 minutes**, la baseline et, si assez de paires existent, un **essai de modèle expérimental**. Elle produit seulement `P5_EXPLORATORY_ONLY.json`, sans `.joblib` ni prévisions, et mentionne toujours `NOT_VALIDATED`. L'entraînement final et la promotion restent dans `scripts/train_p5.py` avec leur propre contrôle indépendant.
 
 La préparation de publication produit désormais aussi `data/c3-preflight.json` après vérification du paquet public : **contrôle technique sans hébergement**. La checklist `docs/C3_PUBLICATION_CHECKLIST.md` documente les actions restantes, les limites et la nécessité de confirmer explicitement toute activation de GitHub Pages. C3 et P5 peuvent donc avancer **en parallèle**, sans prétendre que les prévisions existent déjà.
+
+
+## C3 — Publication volontaire, sans prévisions fictives
+
+Le dépôt propose désormais **deux étapes distinctes** : `.github/workflows/p6-cockpit.yml` produit un paquet intégralement contrôlé depuis les archives réelles, puis `.github/workflows/c3-pages-publish.yml` permet, **uniquement à la demande**, de le publier sur GitHub Pages. Ce second workflow impose le succès de P6 sur le commit exact de `main`, la fraîcheur des captures (moins de trois heures), des données de stations réellement exploitables et le maintien de P5 désactivé. **Aucun déclencheur automatique ni URL publique active n'est présumé.**
+
+Le projet Power BI est structurellement vérifié avec `scripts/check_p4_pbip.py`, mais les quatre pages devront être ouvertes et actualisées dans Power BI Desktop pour confirmer leur rendu réel. Les détails exacts et la présentation portfolio factuelle sont dans `docs/URBAN_OPS_V1_RELEASE.md`.
