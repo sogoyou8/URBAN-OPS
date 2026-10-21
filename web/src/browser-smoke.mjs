@@ -112,7 +112,9 @@ try{
  assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
  assert.equal(await page.$eval('#timeline-heading',e=>e.textContent),'Historique des vélos');
  assert.match(await page.$eval('.timeline-meta',e=>e.textContent),/CAPTURES INCOMPLÈTES/);
- assert.match(await page.$eval('#timeline-explain',e=>e.textContent),/capture\(s\) incomplète\(s\)/);
+ assert.equal(await page.$eval('.timeline-dates span',els=>els.length),2);
+ assert.ok(await page.$eval('.timeline-dates',e=>e.textContent.includes('2026')));
+ assert.match(await page.$eval('#timeline-explain',e=>e.textContent),/1 capture incomplète \(orange\)/);
  assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
  assert.equal(await page.$eval('#timeline-quality',el=>el.textContent),'1',
    'One actual low-coverage observation must be visible as a warning');
