@@ -219,6 +219,8 @@ def main() -> None:
     parser.add_argument("--cadence-minutes", type=int, default=5)
     parser.add_argument("--stale-minutes", type=int, default=60)
     parser.add_argument("--fail-on-stale", action="store_true")
+    parser.add_argument("--fail-on-degraded", action="store_true",
+                        help="Fail audit if coverage or continuity is degraded")
     parser.add_argument("--json-out", type=Path)
     parser.add_argument("--summary", type=Path)
     args = parser.parse_args()
@@ -240,7 +242,9 @@ def main() -> None:
         if args.fail_on_stale:
             raise SystemExit(2)
     elif report["status"] == "degraded":
-        print("::warning::Archived snapshot coverage is below the 80% pilot target.")
+        print("::warning::Archived snapshot coverage or continuity is degraded.")
+        if args.fail_on_degraded:
+            raise SystemExit(3)
 
 
 if __name__ == "__main__":
