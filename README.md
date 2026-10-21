@@ -179,3 +179,12 @@ Un cockpit géographique statique dans `web/` présente les **capturations réel
 ## P6.9 — Paquet vérifiable, **aucun déploiement**
 
 Le workflow P6, après rejeu SHA-256 de vraies archives P3, fabrique `dist/p6-public/` avec données et bibliothèque MapLibre auto-hébergée, politique CSP, `manifest.json` SHA-256 et `provenance.json`. Chromium teste le **bundle final** sous un sous-chemin HTTP, sans publier. L'artefact `urban-ops-p69-publication-ready` est disponible dans GitHub Actions pendant 7 jours; **GitHub Pages n'est pas configuré ni activé**. La stratégie de publication gratuite, à soumettre pour autorisation explicite, est détaillée dans [P6.9 — Publication readiness](docs/P69_PUBLICATION_READINESS.md). P5 demeure non validé.
+
+
+## Mise au point — avancer pendant la collecte P3 (21 octobre 2026)
+
+**Ne pas attendre la fin des sept jours pour développer ni préparer la publication.** Les archives P3 continuent d'être collectées en tâche indépendante ; le pipeline P6 construit un observatoire sur les captures effectivement disponibles. Les critères de validation P5 **7 jours / 900 captures / 40 % de couverture des créneaux de cinq minutes** ne sont pas assouplis.
+
+L'étape `scripts/p5_exploratory.py`, exécutée depuis le rejeu P3 SHA-256 de P6, mesure les **vraies paires à +30 minutes**, la baseline et, si assez de paires existent, un **essai de modèle expérimental**. Elle produit seulement `P5_EXPLORATORY_ONLY.json`, sans `.joblib` ni prévisions, et mentionne toujours `NOT_VALIDATED`. L'entraînement final et la promotion restent dans `scripts/train_p5.py` avec leur propre contrôle indépendant.
+
+La préparation de publication produit désormais aussi `data/c3-preflight.json` après vérification du paquet public : **contrôle technique sans hébergement**. La checklist `docs/C3_PUBLICATION_CHECKLIST.md` documente les actions restantes, les limites et la nécessité de confirmer explicitement toute activation de GitHub Pages. C3 et P5 peuvent donc avancer **en parallèle**, sans prétendre que les prévisions existent déjà.
