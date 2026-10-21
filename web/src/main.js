@@ -293,6 +293,9 @@ function initMap() {
       if(!state.mapReady)return;
       const p=pickMapMarker(state.markerPositions,evt.point.x,evt.point.y);
       map.getCanvas().style.cursor=p?'pointer':'grab';
+      map.getCanvas().title=p?.count>1
+        ? `${display(p.count)} stations regroupées — cliquez pour zoomer`
+        :p?.count===1?'Ouvrir les détails de cette station':'';
     });
     map.on('error',event=>{
       if(!state.mapReady)console.warn('Style en cours de chargement',event.error?.message||'erreur tuiles');
@@ -525,6 +528,24 @@ window.addEventListener('resize',()=>{
     if(state.dataset)renderTimeline();
   });
 });
+function closeMapCountHelp(returnFocus=false){
+  const explainer=$('map-count-explainer'),button=$('map-count-help');
+  if(explainer.hidden)return;
+  explainer.hidden=true;
+  button.setAttribute('aria-expanded','false');
+  if(returnFocus)button.focus();
+}
+$('map-count-help').addEventListener('click',()=>{
+  const explainer=$('map-count-explainer'),button=$('map-count-help');
+  const open=explainer.hidden;
+  explainer.hidden=!open;
+  button.setAttribute('aria-expanded',String(open));
+});
+document.addEventListener('click',event=>{
+  if(!$('map-count-explainer').hidden &&
+     !$('map-count-explainer').contains(event.target) &&
+     !$('map-count-help').contains(event.target))closeMapCountHelp();
+});
 $('open-guide').addEventListener('click',openGuide);
 $('close-guide').addEventListener('click',closeGuide);
 $('understand-dialog').querySelector('[data-guide-close="backdrop"]').addEventListener('click',closeGuide);
@@ -549,6 +570,9 @@ $('map-reset').addEventListener('click',()=>{
 });
 document.addEventListener('keydown',event=>{
   if(!$('understand-dialog').hidden){trapGuideFocus(event);return;}
+  if(event.key==='Escape' && !$('map-count-explainer').hidden){
+    event.preventDefault();closeMapCountHelp(true);return;
+  }
   if(event.key==='Escape' && (state.selected || state.clusterIds)){
     const previous=state.selected;
     state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();

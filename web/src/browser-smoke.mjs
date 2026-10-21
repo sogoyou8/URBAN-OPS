@@ -111,6 +111,29 @@ try{
  assert.equal(await page.$eval('#map-count',el=>el.dataset.visible),'4');
  assert.ok(initial.pixel>0,'Geographic marker MUST render even when style layers never load');
  assert.ok(initial.pageHeight<=initial.viewport+3,'Desktop page should not vertically scroll');
+ assert.match(await page.$eval('.legend-cluster',e=>e.textContent),/stations regroupées/);
+ assert.equal(await page.$eval('#map-count-help',e=>e.getAttribute('aria-expanded')),'false');
+ await page.click('#map-count-help');
+ assert.equal(await page.$eval('#map-count-explainer',e=>e.hidden),false);
+ assert.equal(await page.$eval('#map-count-help',e=>e.getAttribute('aria-expanded')),'true');
+ for(const term of ['Résultats','Sur carte','Repères','pas des vélos']){
+   assert.ok((await page.$eval('#map-count-explainer',e=>e.textContent)).includes(term),
+      'Map help must explain '+term);
+ }
+ await page.keyboard.press('Escape');
+ assert.equal(await page.$eval('#map-count-explainer',e=>e.hidden),true);
+ assert.equal(await page.evaluate(()=>document.activeElement.id),'map-count-help');
+ await page.click('#map-count-help');
+ await page.click('#headline-title');
+ assert.equal(await page.$eval('#map-count-explainer',e=>e.hidden),true,
+   'Map help closes when clicking elsewhere');
+ const compactLabels=await page.evaluate(()=>({
+   axis:Number.parseFloat(getComputedStyle(document.querySelector('.history-axis')).fontSize),
+   time:Number.parseFloat(getComputedStyle(document.querySelector('.history-time')).fontSize),
+   chart:Number.parseFloat(getComputedStyle(document.querySelector('.history-chart-label')).fontSize)
+ }));
+ assert.ok(compactLabels.axis>=12 && compactLabels.time>=12 && compactLabels.chart>=15,
+   'Compact history labels need readable CSS sizes');
  assert.match(await page.$eval('.eyebrow',el=>el.textContent),/VÉLIB’ MÉTROPOLE/);
  assert.match(await page.$eval('#headline-description',el=>el.textContent),/stations Vélib’/);
  assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
@@ -308,6 +331,16 @@ try{
  assert.ok(mobile.headingBottom+6<=mobile.filterTop,'Map title must remain above filters on mobile');
  assert.ok(mobile.countBottom+6<=mobile.filterTop,'Map counters must remain above filters on mobile');
  assert.equal(mobile.kpiFootStyle,'normal','Mobile KPI descriptions must be readable, not ellipsized');
+ await page.click('#map-count-help');
+ const mobileHelp=await page.evaluate(()=>{
+   const box=document.querySelector('#map-count-explainer').getBoundingClientRect();
+   return {x:box.left,right:box.right,viewport:innerWidth,
+     scrollWidth:document.documentElement.scrollWidth};
+ });
+ assert.ok(mobileHelp.x>=0 && mobileHelp.right<=mobileHelp.viewport+2,
+   'Map help must stay inside mobile screen');
+ assert.ok(mobileHelp.scrollWidth<=mobileHelp.viewport+3,'Map help must not create sideways scrolling');
+ await page.keyboard.press('Escape');
  await page.click('#open-guide');
  const dialog=await page.evaluate(()=>{
    const e=document.querySelector('.guide-panel').getBoundingClientRect();

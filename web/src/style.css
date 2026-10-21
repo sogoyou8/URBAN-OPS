@@ -577,3 +577,81 @@ html,body{max-width:100%;overflow-x:clip}
   .bottomline.history-compact,.bottomline.history-expanded{height:auto;min-height:0}
   .history-title-actions{display:block}
 }
+
+
+/* C2.6.1 — Explain what cluster counts and map scope numbers really mean. */
+.map-header{z-index:6}
+.map-utilities{position:relative;gap:6px}
+.map-count-help{
+  flex:none;pointer-events:auto;align-self:flex-start;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:23px;height:24px;background:#102629;
+  border:1px solid #526e6a;color:#c8f1da;
+  font:12px var(--sans);padding:0;
+}
+.map-count-help:hover,.map-count-help[aria-expanded="true"]{
+  background:#245043;border-color:#a2dfbb;
+}
+.map-count-help:focus-visible{outline:2px solid #c8f1da;outline-offset:2px}
+.map-count-explainer{
+  position:absolute;right:0;top:calc(100% + 9px);z-index:9;
+  pointer-events:auto;width:min(310px,calc(100vw - 36px));
+  border:1px solid #547669;background:#0a1c21f7;
+  box-shadow:0 14px 35px #0009;
+  padding:14px 16px;text-align:left;
+  color:#dcebe7;backdrop-filter:blur(10px);
+}
+.map-count-explainer strong{
+  display:block;color:#d8f3e5;font-size:12px;margin-bottom:9px;
+}
+.map-count-explainer p{font:11px/1.55 var(--sans);margin:7px 0;color:#d1dfdd}
+.map-count-explainer b{color:#b5e8cf}
+.map-legend{flex-wrap:wrap;max-width:calc(100% - 45px);gap:8px 13px}
+.map-legend .legend-cluster{
+  color:#c6ead7;border-left:1px solid #375550;padding-left:12px;
+}
+.legend-cluster-sample{
+  width:23px;height:23px;border:1.5px solid #9de0b8;
+  border-radius:50%;background:#1a3b35;color:#e1fff0;
+  display:inline-flex;align-items:center;justify-content:center;
+  font:600 9px var(--sans);flex:none;
+}
+@media(max-width:540px){
+  .map-utilities{gap:6px}
+  .map-count-help{width:29px;height:32px;align-self:center}
+  .map-count-explainer{right:0;top:calc(100% + 10px)}
+  .map-legend{max-width:calc(100% - 26px);gap:7px 10px}
+  .map-legend .legend-cluster{padding-left:8px;font-size:9px}
+  .legend-cluster-sample{width:21px;height:21px}
+}
+/* C2.6.1 — Raise compact-chart label size and contrast; no changes to values,
+ * axes, graph size or the expanded presentation.
+ */
+@media(min-width:861px){
+  .bottomline.history-compact .history-axis{
+    font-size:12px;fill:#d6e5e4;
+  }
+  .bottomline.history-compact .history-time{
+    font-size:12px;fill:#c7d9dd;
+  }
+  .bottomline.history-compact .history-chart-label{
+    font-size:15px;fill:#f0faf5;
+  }
+  .bottomline.history-compact .history-plot-head{
+    font-size:11px;color:#e0edeb;
+  }
+  .bottomline.history-compact .history-legend{
+    font-size:10px;color:#d5e1df;
+  }
+  .bottomline.history-compact .history-capture-control{
+    font-size:10px;color:#d4e5e0;
+  }
+  .bottomline.history-compact .history-scale-note{
+    font-size:10px;color:#ffcb9c;
+  }
+}
+@media(min-width:861px) and (max-width:1120px){
+  .bottomline.history-compact .history-time{font-size:11px}
+  .bottomline.history-compact .history-legend{font-size:9px}
+  .bottomline.history-compact .history-plot-head{font-size:10px}
+}
