@@ -46,6 +46,10 @@ def diagnose(database_url: str, max_lag_seconds: int = DEFAULT_MAX_LAG_SECONDS) 
                       SUM(CASE WHEN reported_lag_seconds > :max_lag THEN 1 ELSE 0 END) AS stale_report,
                       SUM(CASE WHEN num_bikes_available IS NULL OR num_docks_available IS NULL
                             OR mechanical_bikes IS NULL OR electric_bikes IS NULL THEN 1 ELSE 0 END) AS missing_counts,
+                      SUM(CASE WHEN num_bikes_available IS NULL THEN 1 ELSE 0 END) AS missing_total_bikes,
+                      SUM(CASE WHEN num_docks_available IS NULL THEN 1 ELSE 0 END) AS missing_total_docks,
+                      SUM(CASE WHEN mechanical_bikes IS NULL THEN 1 ELSE 0 END) AS missing_mechanical_bikes,
+                      SUM(CASE WHEN electric_bikes IS NULL THEN 1 ELSE 0 END) AS missing_electric_bikes,
                       SUM(CASE WHEN num_bikes_available IS NOT NULL
                             AND mechanical_bikes IS NOT NULL AND electric_bikes IS NOT NULL
                             AND num_bikes_available!=mechanical_bikes+electric_bikes THEN 1 ELSE 0 END) AS bike_type_mismatch,
