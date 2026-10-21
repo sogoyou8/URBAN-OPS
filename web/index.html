@@ -53,9 +53,13 @@
           <div class="inspector-content" id="inspector-content"><div class="sidebar-placeholder">Chargement des stations…</div></div>
         </aside>
       </section>
-      <section class="bottomline" aria-label="Historique interactif des vélos" id="history-section">
+      <section class="bottomline history-compact" aria-label="Historique interactif des vélos" id="history-section">
         <div class="timeline-title">
-          <span class="panel-kicker">C / HISTORIQUE</span>
+          <div class="history-title-actions">
+            <span class="panel-kicker">C / HISTORIQUE</span>
+            <button type="button" id="history-size-toggle" class="history-size-toggle"
+              aria-controls="timeline-plot" aria-pressed="false" title="Agrandir les graphiques sans quitter le cockpit">Développer <span aria-hidden="true">↗</span></button>
+          </div>
           <h2 id="timeline-heading">Historique des vélos</h2>
           <p id="timeline-explain">Les points orange signalent des captures incomplètes.</p>
           <div class="history-inspection" id="history-inspection" role="status" aria-live="polite" aria-atomic="true">

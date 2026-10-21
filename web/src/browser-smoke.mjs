@@ -98,11 +98,15 @@ try{
   const map=document.getElementById('map'),canvas=document.getElementById('station-overlay');
   const ctx=canvas.getContext('2d');
   return {markers:document.getElementById('map-count').textContent,
-          pixel:ctx.getImageData(224,165,1,1).data[3],
+          pixel:(()=>{
+            const px=ctx.getImageData(0,0,canvas.width,canvas.height).data;
+            for(let k=3;k<px.length;k+=4)if(px[k]>0)return px[k];
+            return 0;
+          })(),
           pageHeight:document.documentElement.scrollHeight,viewport:window.innerHeight,
           mapWidth:map.getBoundingClientRect().width};
  });
- assert.match(initial.markers,/4 filtrées/);
+ assert.match(initial.markers,/4 résultats/);
  assert.equal(await page.$eval('#map-count',el=>el.dataset.filtered),'4');
  assert.equal(await page.$eval('#map-count',el=>el.dataset.visible),'4');
  assert.ok(initial.pixel>0,'Geographic marker MUST render even when style layers never load');
@@ -142,6 +146,37 @@ try{
  await page.focus('#history-capture-slider');
  await page.keyboard.press('ArrowRight');
  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/4.*vélos comptés/s);
+ assert.match(await page.$eval('.history-scale-note',e=>e.textContent),
+   /1 capture hors échelle/, 'Singular explanation for the actual incomplete capture');
+ const dimensionsBefore=await page.evaluate(()=>({
+   history:document.querySelector('#history-section').getBoundingClientRect().height,
+   map:document.querySelector('.operational').getBoundingClientRect().height,
+   selected:document.querySelector('#history-capture-slider').value
+ }));
+ assert.equal(await page.$eval('#history-size-toggle',e=>e.getAttribute('aria-pressed')),'false');
+ await page.click('#history-size-toggle');
+ await page.waitForFunction(()=>document.querySelector('#history-section').classList.contains('history-expanded'));
+ await new Promise(done=>setTimeout(done,60));
+ const dimensionsExpanded=await page.evaluate(()=>({
+   history:document.querySelector('#history-section').getBoundingClientRect().height,
+   map:document.querySelector('.operational').getBoundingClientRect().height,
+   selected:document.querySelector('#history-capture-slider').value,
+   scrollHeight:document.documentElement.scrollHeight,viewport:innerHeight
+ }));
+ assert.ok(dimensionsExpanded.history>dimensionsBefore.history+25,
+   'Expanded timeline should get substantially more room');
+ assert.ok(dimensionsExpanded.map<dimensionsBefore.map-25,
+   'Map-first default should reserve more space for station exploration');
+ assert.equal(dimensionsExpanded.selected,dimensionsBefore.selected,
+   'Changing layout cannot change the selected verified capture');
+ assert.ok(dimensionsExpanded.scrollHeight<=dimensionsExpanded.viewport+3,
+   'Both timeline sizes preserve desktop without page scrolling');
+ await page.focus('#history-size-toggle');
+ await page.keyboard.press('Enter');
+ await page.waitForFunction(()=>document.querySelector('#history-section').classList.contains('history-compact'));
+ assert.equal(await page.$eval('#history-size-toggle',e=>e.getAttribute('aria-pressed')),'false');
+ assert.equal(await page.$eval('#history-capture-slider',e=>e.value),dimensionsBefore.selected);
+
 
  await page.click('#open-guide');
  assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),false);
@@ -168,7 +203,7 @@ try{
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),15);
  assert.match(await page.$eval('#headline-title',e=>e.textContent),/secteurs/i);
  await page.click('[data-sector="NE"]');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/filtrées/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/résultats/);
  await page.click('[data-view="fiabilite"]');
  await page.click('#open-guide');
  assert.match(await page.$eval('#guide-context-title',el=>el.textContent),/Fiabilité/);
@@ -178,7 +213,7 @@ try{
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/stations avec données inutilisables/);
  await page.click('#inspect-unqualified');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 résultats/);
  assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
  await page.click('[data-station="3"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/FIABILITÉ DES CHIFFRES/);
@@ -198,7 +233,7 @@ try{
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
  assert.equal(await page.$eval('[data-filter="empty"]',e=>e.getAttribute('aria-pressed')),'true');
- assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
+ assert.match(await page.$eval('#map-count',e=>e.textContent),/1 résultats/);
  await page.click('[data-filter="all"]');
  await page.type('#station-search','Bercy');
  assert.match(await page.$eval('#station-results',e=>e.textContent),/1 stations/);
