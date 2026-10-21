@@ -97,7 +97,9 @@ try{
     'Real archive includes actual usable-station bars');
   assert.ok((await page.$$('.history-bike-dot')).length>=2,
     'Real archive includes actual bike observations');
-  assert.match(await page.$eval('.history-date-range',e=>e.textContent),/octobre|septembre|novembre|décembre|janvier|février|mars|avril|mai|juin|juillet|août/i);
+  assert.match(await page.$eval('.history-date-range',e=>e.textContent),
+    /(?:octobre|septembre|novembre|décembre|janvier|février|mars|avril|mai|juin|juillet|août)|(?:\d{1,2}\/\d{2}\/\d{4})/i,
+    'History date range can legitimately cross midnight: full numeric dates must be accepted');
   assert.match(await page.$eval('#history-inspection',e=>e.textContent),/vélos comptés/);
   await page.$eval('#history-capture-slider',e=>{e.value='0';e.dispatchEvent(new Event('input',{bubbles:true}));});
   assert.equal(await page.$eval('#history-capture-slider',e=>e.value),'0');
