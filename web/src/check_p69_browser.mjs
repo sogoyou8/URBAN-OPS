@@ -62,6 +62,15 @@ try{
     history:document.querySelector('#history-section').clientHeight
   }));
   await page.screenshot({path:join(auditDir,'desktop-real-1440x900.png'),fullPage:true});
+  assert.match(await page.$eval('.legend-cluster',e=>e.textContent),/stations regroupées/);
+  assert.ok(Number.parseFloat(await page.$eval('.history-axis',e=>getComputedStyle(e).fontSize))>=12,
+    'Compact history labels should remain readable with real data');
+  await page.click('#map-count-help');
+  assert.equal(await page.$eval('#map-count-explainer',e=>e.hidden),false);
+  assert.match(await page.$eval('#map-count-explainer',e=>e.textContent),/pas des vélos/);
+  await page.screenshot({path:join(auditDir,'map-counter-help-real-1440x900.png'),fullPage:true});
+  await page.keyboard.press('Escape');
+  assert.equal(await page.$eval('#map-count-explainer',e=>e.hidden),true);
   await page.click('#history-size-toggle');
   await page.waitForFunction(()=>document.querySelector('#history-section').classList.contains('history-expanded'));
   await new Promise(r=>setTimeout(r,60));
