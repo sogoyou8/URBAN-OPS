@@ -26,7 +26,7 @@
         <button type="button" class="nav" data-view="fiabilite">Fiabilité</button>
         <button type="button" class="nav" data-view="previsions">Prévisions <span class="nav-lock">↗</span></button>
       </nav>
-      <div class="topbar-right"><span class="signal"></span><span id="top-capture">CHARGEMENT DES DONNÉES</span><button id="reload" class="mini-icon" type="button" aria-label="Recharger les dernières données archivées" title="Recharger l'instantané">↻</button></div>
+      <div class="topbar-right"><span class="signal"></span><span id="top-capture">CHARGEMENT DES DONNÉES</span><button id="reload" class="mini-icon" type="button" aria-label="Relire le fichier de données archivé" title="Relire l’instantané archivé sans nouvelle collecte">↻</button></div>
     </header>
     <main class="workspace" id="main-content" tabindex="-1">
       <section class="masthead" aria-label="Vue d'ensemble">
@@ -41,7 +41,7 @@
       </section>
       <section class="operational" aria-label="Carte et inspection des stations">
         <div class="map-panel">
-          <div class="map-header"><div><span class="panel-kicker">A / GÉOGRAPHIE</span><h2 id="map-title">Disponibilité par station</h2></div><div class="map-utilities"><div class="map-count" id="map-count" role="status" aria-live="polite">GÉOLOCALISATION EN CHARGEMENT</div><button id="map-reset" type="button" class="map-reset" title="Recentrer la carte sur Paris, conserver les filtres">◎ Recentrer</button></div></div>
+          <div class="map-header"><div><span class="panel-kicker">A / GÉOGRAPHIE</span><h2 id="map-title">Disponibilité par station</h2></div><div class="map-utilities"><div class="map-count" id="map-count" role="status" aria-live="polite">GÉOLOCALISATION EN CHARGEMENT</div><button id="map-reset" type="button" class="map-reset" title="Afficher l’emprise des stations du réseau, conserver les filtres" aria-label="Recentrer sur tout le réseau, sans effacer les filtres">◎ Recentrer</button></div></div>
           <div id="map" aria-label="Carte interactive des stations : sélectionner un point pour inspecter ou une grappe pour zoomer. La liste à droite permet aussi une navigation au clavier." role="region"></div>
           <div id="map-fallback" class="map-fallback" hidden></div>
           <div class="map-control"><span class="control-label">AFFICHAGE</span><div class="filter-pills" role="group" aria-label="Filtrer les stations par état"><button type="button" class="filter-pill active" data-filter="all">Toutes</button><button type="button" class="filter-pill" data-filter="available">Disponibles</button><button type="button" class="filter-pill" data-filter="empty">Sans vélo</button><button type="button" class="filter-pill" data-filter="unknown">Non qualifiées</button></div></div>
@@ -61,6 +61,12 @@
       <footer class="footer"><span>URBAN OPS © 2026</span><span>OBSERVATION ≠ TEMPS RÉEL <i> / </i> PAS DE DONNÉES RECONSTITUÉES</span><a href="https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole" target="_blank" rel="noopener noreferrer">DONNÉES VÉLIB' · ODbL ↗</a></footer>
     </main>
   </div>
-  <div class="error-state" id="error-state" hidden role="alert"><h2>Signal indisponible.</h2><p id="error-message">Le jeu de données n'a pas pu être chargé.</p><p>Générez un export P6 vérifié dans <code>web/data/network.json</code> ou synchronisez les données réelles.</p></div>
+  <div class="error-state" id="error-state" hidden role="alert" aria-labelledby="error-title">
+    <span class="station-kicker">P6 / ARCHIVE NON ACCESSIBLE</span>
+    <h2 id="error-title">Données indisponibles.</h2>
+    <p id="error-message">Le jeu de données n'a pas pu être chargé.</p>
+    <p>Le cockpit n'affiche jamais de données fictives. Synchronise un export P6 vérifié dans <code>web/data/network.json</code>, puis réessaie.</p>
+    <button type="button" id="retry-data" class="retry-data">↻ Réessayer le chargement</button>
+  </div>
 </body>
 </html>
