@@ -109,7 +109,7 @@ function filtered() {
 }
 function setViewportCount(filteredCount, markers, fallback=false){
   const counts=viewportCounts(filteredCount,markers);
-  const label=`${display(counts.filtered)} selon les filtres · ${display(counts.visible)} sur la carte · ${display(counts.markers)} repères`;
+  const label=`${display(counts.filtered)} résultats · ${display(counts.visible)} sur carte · ${display(counts.markers)} repères`;
   const el=$('map-count');
   el.textContent=label;
   el.dataset.filtered=String(counts.filtered);
