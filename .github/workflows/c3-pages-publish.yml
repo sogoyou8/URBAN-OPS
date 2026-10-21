@@ -1,0 +1,71 @@
+name: C3 — Publish reviewed Urban Ops snapshot (manual only)
+on:
+  workflow_dispatch:
+    inputs:
+      p6_run_id:
+        description: 'Successful P6 cockpit run ID on current main commit (fresh real P3 archives)'
+        type: string
+        required: true
+permissions:
+  contents: read
+  actions: read
+  pages: write
+  id-token: write
+concurrency:
+  group: urban-ops-github-pages
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      SOURCE_RUN: ${{ inputs.p6_run_id }}
+      EXPECTED_SHA: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require a completed, successful, P6 run on this exact main commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_RUN" =~ ^[0-9]+$ ]] || { echo "P6 run ID must be numeric" >&2; exit 1; }
+          test "${{ github.ref }}" = 'refs/heads/main'
+          gh api "repos/$GH_REPO/actions/runs/$SOURCE_RUN" > /tmp/p6-origin.json
+          python - <<'PY'
+          import json,os
+          r=json.load(open('/tmp/p6-origin.json'))
+          assert r['name']=='P6 Urban Ops cockpit — checks and verified real snapshot',r['name']
+          assert r['status']=='completed' and r['conclusion']=='success', 'P6 run must have passed'
+          assert r['head_branch']=='main', 'Do not publish feature-branch test data'
+          assert r['head_sha']==os.environ['EXPECTED_SHA'], 'Rebuild P6 on the current main commit before release'
+          assert r['event'] in ('push','workflow_dispatch'), 'Source must not be a PR preview'
+          print('Approved P6 CI run:',r['id'],r['head_sha'])
+          PY
+      - name: Download exactly the original, verified P6 public bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p dist/p6-public
+          gh run download "$SOURCE_RUN" --repo "$GH_REPO" \
+            --name urban-ops-p69-publication-ready --dir dist/p6-public
+          test -s dist/p6-public/manifest.json
+          test -s dist/p6-public/provenance.json
+      - name: Re-check every file digest, source, P5 status and capture freshness
+        run: |
+          python -m scripts.c3_publish_gate --bundle dist/p6-public --max-age-hours 3
+      - name: Prepare GitHub Pages (repository Pages must be enabled)
+        uses: actions/configure-pages@v5
+      - name: Upload only the checked release bundle
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/p6-public
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

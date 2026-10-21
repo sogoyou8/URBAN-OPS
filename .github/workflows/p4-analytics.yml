@@ -6,6 +6,8 @@ on:
     paths:
       - '.github/workflows/p4-analytics.yml'
       - 'scripts/build_pbip.py'
+      - 'scripts/check_p4_pbip.py'
+      - 'tests/test_p4_pbip_check.py'
       - 'scripts/audit_history.py'
       - 'powerbi/urbanops_theme.json'
 permissions:
@@ -92,6 +94,22 @@ jobs:
                   if file.is_file():dest.write(file,file.relative_to(root))
           print('PBIP generated:',sum(p.is_file() for p in root.rglob('*')),'files')
           PY_PBIP
+      - name: Validate generated 4-page PBIP structure and P3-derived CSV digests
+        run: |
+          python -m scripts.check_p4_pbip --project data/p4-pbip/UrbanOps --output data/p4-pbip-qa.json
+          python - <<'PY'
+          import json
+          x=json.load(open('data/p4-pbip-qa.json'))
+          assert len(x['pages'])==4
+          assert x['verified_csv_tables']>=8
+          assert x['power_bi_desktop_rendered'] is False
+          print('P4 PBIP built from real data; Windows Power BI Desktop review still required')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p4-structural-qa
+          path: data/p4-pbip-qa.json
+          retention-days: 14
       - uses: actions/upload-artifact@v4
         with:
           name: urban-ops-p4-real-4pages-PBIP
