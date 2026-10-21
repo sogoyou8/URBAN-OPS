@@ -57,6 +57,18 @@ try{
   const auditDir=resolve('data/p6-c1c2-qa');
   await mkdir(auditDir,{recursive:true});
   await page.screenshot({path:join(auditDir,'desktop-real-1440x900.png'),fullPage:true});
+  assert.match(await page.$eval('.eyebrow',e=>e.textContent),/VÉLIB’ MÉTROPOLE/);
+  assert.match(await page.$eval('#headline-description',e=>e.textContent),/stations Vélib’/);
+  assert.match(await page.$eval('.scope-note',e=>e.textContent),/pas de temps réel/);
+  assert.ok(await page.$('.timeline-svg'),'A real archive must render the coverage-aware history');
+  assert.match(await page.$eval('.timeline-svg',e=>e.getAttribute('aria-label')),/zéro/);
+  await page.click('#open-guide');
+  assert.equal(await page.$eval('#understand-dialog',e=>e.hidden),false);
+  assert.match(await page.$eval('.guide-method',e=>e.textContent),/10 %/);
+  await page.screenshot({path:join(auditDir,'guide-real-1440x900.png'),fullPage:true});
+  await page.keyboard.press('Escape');
+  assert.equal(await page.$eval('#understand-dialog',e=>e.hidden),true);
+
   // Exercise data-backed station inspection without assuming a station condition.
   const firstStation=await page.$('[data-station]');
   assert.ok(firstStation,'Real verified dataset should expose station rows');
