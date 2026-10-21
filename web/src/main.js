@@ -232,6 +232,8 @@ function selectStation(id) {
   // Preserve search/filter context when following a result into its detail.
   history.replaceState(null,'','#reseau');
   updateNav();paintStats();renderInspector();resetInspectorScroll();repaintMap();focusStation(station);
+  // The clicked list row was replaced: move keyboard focus to the usable back control.
+  $('inspector-content').querySelector('[data-back]')?.focus({preventScroll:true});
 }
 function updateNav() {
   for(const nav of document.querySelectorAll('.nav')){
@@ -299,7 +301,16 @@ function renderInspector(){
   }
   if(state.view==='reseau' && state.selected){
     const station=state.stations.find(s=>s.id===state.selected);
-    if(station){box.innerHTML=renderStationDetail(station);box.querySelector('[data-back]').onclick=()=>{state.selected=null;renderInspector();resetInspectorScroll();repaintMap()};return;}
+    if(station){
+      box.innerHTML=renderStationDetail(station);
+      box.querySelector('[data-back]').onclick=()=>{
+        const previous=state.selected;
+        state.selected=null;renderInspector();resetInspectorScroll();repaintMap();
+        const row=[...document.querySelectorAll('[data-station]')].find(el=>el.dataset.station===previous);
+        (row||$('station-search'))?.focus({preventScroll:true});
+      };
+      return;
+    }
   }
   if(state.view==='reseau'){
     box.innerHTML=`<div class="panel-search"><div class="search-wrap"><span>⌕</span><input id="station-search" type="search" value="${html(state.query)}" aria-label="Rechercher une station" placeholder="Nom, numéro, identifiant…" autocomplete="off"/></div><div class="list-heading"><span>STATIONS / RÉSULTATS</span><span id="station-results">${display(filtered().length)} stations</span></div></div><div class="station-list" id="station-list">${stationRows(filtered())}</div>`;
@@ -456,6 +467,9 @@ $('map-reset').addEventListener('click',()=>{
 });
 document.addEventListener('keydown',event=>{
   if(event.key==='Escape' && (state.selected || state.clusterIds)){
+    const previous=state.selected;
     state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
+    const row=[...document.querySelectorAll('[data-station]')].find(el=>el.dataset.station===previous);
+    (row||$('station-search'))?.focus({preventScroll:true});
   }
 });
