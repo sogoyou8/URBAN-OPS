@@ -110,6 +110,10 @@ try{
  assert.match(await page.$eval('.eyebrow',el=>el.textContent),/VÉLIB’ MÉTROPOLE/);
  assert.match(await page.$eval('#headline-description',el=>el.textContent),/stations Vélib’/);
  assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
+ assert.equal(await page.$eval('#timeline-heading',e=>e.textContent),'Historique des vélos');
+ assert.match(await page.$eval('.timeline-meta',e=>e.textContent),/CAPTURES INCOMPLÈTES/);
+ assert.match(await page.$eval('#timeline-explain',e=>e.textContent),/capture\(s\) incomplète\(s\)/);
+ assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
  assert.equal(await page.$eval('#timeline-quality',el=>el.textContent),'1',
    'One actual low-coverage observation must be visible as a warning');
  assert.equal(await page.$$eval('.timeline-svg polyline',els=>els.length),1,
@@ -119,7 +123,7 @@ try{
  assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),false);
  assert.equal(await page.$eval('#open-guide',el=>el.getAttribute('aria-expanded')),'true');
  assert.equal(await page.evaluate(()=>document.activeElement.id),'close-guide');
- assert.match(await page.$eval('#guide-context-text',el=>el.textContent),/stations Vélib’/);
+ assert.match(await page.$eval('#guide-context-text',el=>el.textContent),/station pour voir les vélos/);
  assert.match(await page.$eval('.guide-method',el=>el.textContent),/10 %/);
  await page.keyboard.press('Escape');
  assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),true);
@@ -138,7 +142,7 @@ try{
  await page.evaluate(()=>{window.__mockMap.zoom=15;window.__mockMap.emitMove()});
  await page.click('[data-view="territoires"]');
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),15);
- assert.match(await page.$eval('#headline-title',e=>e.textContent),/territoire/i);
+ assert.match(await page.$eval('#headline-title',e=>e.textContent),/secteurs/i);
  await page.click('[data-sector="NE"]');
  assert.match(await page.$eval('#map-count',e=>e.textContent),/filtrées/);
  await page.click('[data-view="fiabilite"]');
@@ -148,13 +152,13 @@ try{
 
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),11);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/observations reçues, non exploitables/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/stations avec données inutilisables/);
  await page.click('#inspect-unqualified');
  assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
  assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
  await page.click('[data-station="3"]');
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/QUALITÉ DE L’OBSERVATION/);
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Observation rejetée/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/FIABILITÉ DES CHIFFRES/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/ne peuvent pas être utilisés/);
  await page.click('[data-back]');
  assert.match(await page.$eval('#station-list',e=>e.textContent),/Belleville/);
  await page.click('[data-view="fiabilite"]');
@@ -166,7 +170,7 @@ try{
  assert.equal(await page.$eval('#inspector-content',e=>e.scrollTop),0);
  await page.click('[data-view="previsions"]');
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/27 \/ 900/);
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Non vérifiées ici/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/À vérifier/);
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
  assert.equal(await page.$eval('[data-filter="empty"]',e=>e.getAttribute('aria-pressed')),'true');
