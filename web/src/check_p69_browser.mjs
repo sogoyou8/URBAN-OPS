@@ -3,8 +3,8 @@
  */
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
-import {resolve, extname, relative, sep} from 'node:path';
+import {readFile,mkdir} from 'node:fs/promises';
+import {resolve, extname, relative, sep, join} from 'node:path';
 import puppeteer from 'puppeteer-core';
 
 const root=resolve(process.argv[2]||'dist/p6-public');
@@ -54,14 +54,27 @@ try{
   assert.ok(initial.scrollHeight<=initial.height+3,'Desktop must remain screen-height');
   assert.ok(initial.scrollWidth<=initial.width+3,'Desktop must not scroll sideways');
   assert.ok(initial.visible<=initial.filtered && initial.markers<=initial.visible,'Viewport labels must be coherent');
+  const auditDir=resolve('data/p6-c1c2-qa');
+  await mkdir(auditDir,{recursive:true});
+  await page.screenshot({path:join(auditDir,'desktop-real-1440x900.png'),fullPage:true});
+  // Exercise data-backed station inspection without assuming a station condition.
+  const firstStation=await page.$('[data-station]');
+  assert.ok(firstStation,'Real verified dataset should expose station rows');
+  await firstStation.click();
+  assert.ok(await page.$('[data-back]'),'Station inspector should offer a back control');
+  assert.equal(await page.evaluate(()=>document.activeElement?.hasAttribute('data-back')),true,
+    'Keyboard focus follows station inspection');
+  await page.click('[data-back]');
+  assert.ok(await page.$('#station-search'),'Back returns to search');
   await page.click('[data-view="fiabilite"]');
   assert.match(await page.$eval('#headline-title',e=>e.textContent),/donnée/i);
   await page.click('[data-view="previsions"]');
   assert.match(await page.$eval('#inspector-content',e=>e.textContent),/PRÉVISION NON DISPONIBLE/);
   await page.click('[data-view="reseau"]');
   await page.setViewport({width:390,height:844,deviceScaleFactor:1});
-  await new Promise(r=>setTimeout(r,100));
+  await new Promise(r=>setTimeout(r,200));
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3), 'Mobile must not scroll horizontally');
+  await page.screenshot({path:join(auditDir,'mobile-real-390x844.png'),fullPage:true});
   assert.deepEqual(errors,[],'No browser page exceptions');
   assert.ok(!blocked.some(u=>u.includes('cdn.jsdelivr.net/npm/maplibre-gl')),'No external JS CDN at runtime');
   console.log(JSON.stringify({status:'PASS',loaded_real_stations:initial.filtered,vendor_loaded:true,network_requests_blocked:blocked.length,offline_basemap_smoke:true}));
