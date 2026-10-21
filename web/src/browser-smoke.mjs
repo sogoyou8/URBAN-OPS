@@ -231,7 +231,10 @@ try{
  fixture.metrics.bikes+=dense.length*5;
  fixture.metrics.docks+=dense.length*10;
  await fallbackPage.reload({waitUntil:'load'});
- await fallbackPage.waitForFunction(()=>!document.querySelector('#map-fallback').hidden,{timeout:10000});
+ await fallbackPage.waitForFunction(count=>
+   !document.querySelector('#map-fallback').hidden &&
+   Number(document.querySelector('#map-count')?.dataset.filtered)===count,
+   {timeout:10000},fixture.stations.length);
  const fallbackCount=await fallbackPage.$('.fallback-point');
  assert.ok(fallbackCount.length<fixture.stations.length/2,'Fallback should cluster dense stations');
  assert.ok(await fallbackPage.$('.fallback-point.cluster'),'Fallback groups must be accessible');
