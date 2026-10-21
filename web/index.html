@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="color-scheme" content="dark"/>
   <meta name="description" content="URBAN OPS — exploration des captures réelles du réseau Vélib' Métropole, fiabilité des stations et historique vérifiable."/>
-  <title>URBAN OPS / Mobility Intelligence</title>
+  <title>URBAN OPS — Observatoire Vélib’ Métropole</title>
   <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin/>
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
   <link rel="stylesheet" href="./src/style.css"/>
@@ -26,11 +26,11 @@
         <button type="button" class="nav" data-view="fiabilite">Fiabilité</button>
         <button type="button" class="nav" data-view="previsions">Prévisions <span class="nav-lock">↗</span></button>
       </nav>
-      <div class="topbar-right"><span class="signal"></span><span id="top-capture">CHARGEMENT DES DONNÉES</span><button id="reload" class="mini-icon" type="button" aria-label="Relire le fichier de données archivé" title="Relire l’instantané archivé sans nouvelle collecte">↻</button></div>
+      <div class="topbar-right"><button id="open-guide" type="button" class="guide-trigger" aria-haspopup="dialog" aria-controls="understand-dialog" aria-expanded="false">ⓘ Comprendre</button><span class="signal"></span><span id="top-capture">CHARGEMENT DES DONNÉES</span><button id="reload" class="mini-icon" type="button" aria-label="Relire le fichier de données archivé" title="Relire l’instantané archivé sans nouvelle collecte">↻</button></div>
     </header>
     <main class="workspace" id="main-content" tabindex="-1">
       <section class="masthead" aria-label="Vue d'ensemble">
-        <div class="headline"><div class="eyebrow"><span class="index">01 / 04</span> <span>OBSERVATOIRE MÉTROPOLITAIN</span></div><h1 id="headline-title">Le pouls du réseau<span class="period">.</span></h1><p id="headline-description">État observé du réseau à la dernière capture archivée</p></div>
+        <div class="headline"><div class="eyebrow"><span class="index">01 / 04</span> <span>OBSERVATOIRE VÉLIB’ MÉTROPOLE</span></div><h1 id="headline-title">Le pouls du réseau<span class="period">.</span></h1><p id="headline-description">Explorez les stations Vélib’, leur disponibilité observée et la fiabilité des captures.</p><p class="scope-note"><span aria-hidden="true">◷</span> Données archivées et horodatées · pas de temps réel</p></div>
         <div class="truth"><span class="truth-dot"></span><div><strong id="freshness-label">EN ATTENTE DE CAPTURE</strong><small id="capture-time">Origine : P3 / Archives vérifiées</small></div></div>
       </section>
       <section class="metric-strip" aria-label="Indicateurs observés">
@@ -56,10 +56,33 @@
       <section class="bottomline" aria-label="Historique des collectes">
         <div class="timeline-title"><span class="panel-kicker">C / OBSERVATIONS DANS LE TEMPS</span><h2 id="timeline-heading">Continuité des captures</h2><p id="timeline-explain">Les points affichés correspondent uniquement aux collectes enregistrées.</p></div>
         <div class="timeline-plot" id="timeline-plot"><div class="timeline-empty">Lecture de l'historique archivé…</div></div>
-        <div class="timeline-meta"><strong id="timeline-count">—</strong><small>CAPTURES REJOUÉES<br/>DANS CET EXPORT</small><strong id="timeline-gap">—</strong><small>PLUS GRAND ÉCART<br/>OBSERVÉ</small></div>
+        <div class="timeline-meta"><strong id="timeline-count">—</strong><small>CAPTURES REJOUÉES</small><strong id="timeline-gap">—</strong><small>ÉCART MAX.</small><strong id="timeline-quality">—</strong><small>COUVERTURE RÉDUITE</small></div>
       </section>
       <footer class="footer"><span>URBAN OPS © 2026</span><span>OBSERVATION ≠ TEMPS RÉEL <i> / </i> PAS DE DONNÉES RECONSTITUÉES</span><a href="https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole" target="_blank" rel="noopener noreferrer">DONNÉES VÉLIB' · ODbL ↗</a></footer>
     </main>
+  </div>
+  <div id="understand-dialog" class="guide-overlay" hidden>
+    <div class="guide-backdrop" data-guide-close="backdrop"></div>
+    <section class="guide-panel" role="dialog" aria-modal="true" aria-labelledby="guide-title" aria-describedby="guide-intro" tabindex="-1">
+      <div class="guide-head">
+        <div><span class="panel-kicker">URBAN OPS / MODE D’EMPLOI</span><h2 id="guide-title">Comprendre le réseau.</h2></div>
+        <button id="close-guide" type="button" class="guide-close" aria-label="Fermer les explications">✕ <span>Fermer</span></button>
+      </div>
+      <div class="guide-body">
+        <p id="guide-intro" class="guide-lead">Urban Ops est un observatoire du réseau Vélib’ Métropole : il aide à explorer les stations, leur disponibilité observée et la fiabilité des données archivées.</p>
+        <section class="guide-context" aria-label="Comprendre la section active"><span class="station-kicker">VOTRE VUE ACTUELLE</span><h3 id="guide-context-title">Réseau</h3><p id="guide-context-text">La carte regroupe les stations par statut dans la dernière capture archivée.</p></section>
+        <div class="guide-grid">
+          <section><span class="guide-num">01 / LE SUJET</span><h3>Des stations, pas des trajets</h3><p>Les chiffres concernent la disponibilité des vélos et des bornes au moment de la capture. Ils ne mesurent ni les voyages, ni leur durée.</p></section>
+          <section><span class="guide-num">02 / LES SOURCES</span><h3>Des archives officielles</h3><p>Les observations proviennent des données ouvertes Vélib’ Métropole (GBFS), collectées et archivées par Urban Ops P3. Chaque archive rejouée est contrôlée par empreinte SHA-256. <a href="https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole" target="_blank" rel="noopener noreferrer">Voir la source officielle ↗</a></p></section>
+          <section><span class="guide-num">03 / LIRE LES CHIFFRES</span><h3>Inconnue ≠ zéro vélo</h3><p>Une station « Non qualifiée » ne possède pas de mesure exploitable. Elle ne compte pas comme une station vide et ses vélos ne sont pas inclus dans les totaux.</p></section>
+          <section><span class="guide-num">04 / HISTORIQUE</span><h3>Couverture et continuité</h3><p>Chaque point décrit les vélos comptabilisés et le nombre de stations exploitables. Une baisse de couverture peut rendre deux totaux non comparables : le tracé est alors interrompu. Les pastilles orange représentent ces relevés, sans les supprimer ni les corriger.</p></section>
+          <section><span class="guide-num">05 / NAVIGATION</span><h3>Quatre lectures</h3><p><strong>Réseau</strong> : explorer une station. <strong>Territoires</strong> : comparer quatre quadrants analytiques. <strong>Fiabilité</strong> : comprendre les rejets. <strong>Prévisions</strong> : suivre les conditions nécessaires à P5.</p></section>
+          <section><span class="guide-num">06 / PRÉVISIONS</span><h3>Pas de score inventé</h3><p>Le modèle +30 minutes reste indisponible tant que l'historique réel, les paires temporelles et l'évaluation hors échantillon n'ont pas été validés.</p></section>
+        </div>
+        <p class="guide-method">Lecture de l'historique : une baisse de plus de 10 % du nombre de stations exploitables par rapport à la meilleure capture de la fenêtre est signalée comme <strong>couverture réduite</strong>. Il s'agit d'un repère visuel, pas d'un rejet P3 ni d'une preuve de disparition de vélos. Les observations manquantes ne sont jamais reconstituées.</p>
+        <p class="guide-footer-note">Projet indépendant à partir de données ouvertes Vélib’ Métropole (ODbL), non affilié à l'opérateur.</p>
+      </div>
+    </section>
   </div>
   <div class="error-state" id="error-state" hidden role="alert" aria-labelledby="error-title">
     <span class="station-kicker">P6 / ARCHIVE NON ACCESSIBLE</span>
