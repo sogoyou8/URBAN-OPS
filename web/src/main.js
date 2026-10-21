@@ -73,7 +73,7 @@ function paintStats() {
     reseau:[
       ['STATIONS DU RÉSEAU',display(m.stations),'stations présentes dans le réseau'],
       ['VÉLOS DISPONIBLES',display(m.bikes),'dans les stations avec données utilisables'],
-      ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations qualifiées`],
+      ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations avec données utilisables`],
       ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${display(m.unusable)} données inutilisables`],
     ],
     territoires:[
@@ -332,9 +332,7 @@ function updateNav() {
   updateGuideContext();
   document.querySelector('.workspace').dataset.view=state.view;
   $('panel-state').textContent=state.view==='previsions'?'EN PRÉPARATION':state.view==='fiabilite'?'CONTRÔLE':state.view==='territoires'?'COMPARAISON':'EXPLORATION';
-  $('timeline-heading').textContent=state.view==='fiabilite'?'Historique des vélos':
-    state.view==='territoires'?'Historique des vélos':
-    state.view==='previsions'?'Historique des vélos':'Historique des vélos';
+  $('timeline-heading').textContent='Historique des vélos';
 }
 function statusChip(station){
   const category=station.condition;
@@ -443,7 +441,7 @@ function renderInspector(){
       <div class="p5-progress">
         <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} de l'objectif de captures</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
         <div class="p5-progress-row"><span>Jours de données</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} de l'objectif de jours</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
-        <div class="p5-progress-row"><span>Continuité des captures</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Part des relevés disponibles dans la période étudiée</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
+        <div class="p5-progress-row"><span>Relevés disponibles</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Part des captures retrouvées parmi celles attendues</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
       </div>
       <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Assez de captures, vérification en attente':'Encore des données à collecter'}</strong></div>
       <div class="detail-meta"><span>Données pour les prévisions</span><strong>À vérifier</strong></div>
@@ -497,7 +495,7 @@ function renderTimeline() {
     const color=p.status==='reduced'?'#f5b17c':'#73a9c9';
     return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations avec données utilisables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
   }).join('');
-  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos observés sur une échelle démarrant à zéro. Orange : couverture réduite. Trait bleu inférieur : stations avec données utilisables.">
+  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos comptés. Les points orange signalent des captures incomplètes. La rangée du bas indique combien de stations ont des données utilisables.">
     <line x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}" stroke="#4a6767"/>
     <line x1="${left}" x2="${W-right}" y1="${top}" y2="${top}" stroke="#355055" stroke-dasharray="2 6"/>
     <text x="${left-5}" y="${top+3}" font-size="9" text-anchor="end" fill="#b5ced0">${display(ceiling)}</text>
