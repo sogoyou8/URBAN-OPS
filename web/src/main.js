@@ -12,7 +12,7 @@ const GUIDE_CONTEXT={
   reseau:['Réseau','Cliquez sur une station pour voir les vélos disponibles, les bornes libres et la date du dernier relevé.'],
   territoires:['Territoires','Comparez les disponibilités dans quatre zones du réseau. Ce ne sont pas les arrondissements de Paris.'],
   fiabilite:['Fiabilité','Découvrez les stations dont les chiffres manquent ou ne peuvent pas être utilisés.'],
-  previsions:['Prévisions','Les prévisions à 30 minutes sont en préparation. Pour l'instant, cette section montre les données déjà rassemblées.']
+  previsions:['Prévisions','Les prévisions à 30 minutes sont en préparation. Pour le moment, cette section montre les données déjà rassemblées.']
 };
 let guideReturnFocus=null;
 function updateGuideContext(){
