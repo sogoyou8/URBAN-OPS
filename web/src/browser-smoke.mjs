@@ -112,7 +112,7 @@ try{
  assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
  assert.equal(await page.$eval('#timeline-quality',el=>el.textContent),'1',
    'One actual low-coverage observation must be visible as a warning');
- assert.equal(await page.$eval('.timeline-svg polyline',els=>els.length),1,
+ assert.equal(await page.$$eval('.timeline-svg polyline',els=>els.length),1,
    'Only the last two comparable captures may form a connected line');
  assert.match(await page.$eval('.timeline-svg',el=>el.getAttribute('aria-label')),/zéro/);
  await page.click('#open-guide');
