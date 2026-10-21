@@ -65,9 +65,9 @@ try{
   assert.match(await page.$eval('.guide-method',e=>e.textContent),/points sont orange/i);
   assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
   assert.ok(await page.$('.timeline-svg'),'Real verified history should be graphed');
-  assert.ok((await page.$('.history-station-bar')).length>=2,
+  assert.ok((await page.$$('.history-station-bar')).length>=2,
     'Real archive includes actual usable-station bars');
-  assert.ok((await page.$('.history-bike-dot')).length>=2,
+  assert.ok((await page.$$('.history-bike-dot')).length>=2,
     'Real archive includes actual bike observations');
   assert.match(await page.$eval('.history-date-range',e=>e.textContent),/octobre|septembre|novembre|décembre|janvier|février|mars|avril|mai|juin|juillet|août/i);
   assert.match(await page.$eval('#history-inspection',e=>e.textContent),/vélos comptés/);
