@@ -31,9 +31,11 @@ const fixture={
 };
 
 async function startServer(){
+ let dataAvailable=true;
  const server=createServer(async (req,res)=>{
   const pathname=decodeURIComponent(new URL(req.url,'http://localhost').pathname);
   if(pathname==='/data/network.json'){
+   if(!dataAvailable){res.writeHead(503,{'Content-Type':'text/plain','Cache-Control':'no-store'});res.end('Dataset offline');return;}
    res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});
    res.end(JSON.stringify(fixture));return;
   }
@@ -46,10 +48,10 @@ async function startServer(){
   }catch{res.writeHead(404);res.end();}
  });
  await new Promise(ok=>server.listen(0,'127.0.0.1',ok));
- return {server,url:'http://127.0.0.1:'+server.address().port};
+ return {server,url:'http://127.0.0.1:'+server.address().port,setDatasetAvailable:v=>{dataAvailable=v;}};
 }
 
-const {server,url}=await startServer();
+const {server,url,setDatasetAvailable}=await startServer();
 let browser;
 try{
  browser=await puppeteer.launch({executablePath:process.env.P6_CHROME||'/usr/bin/google-chrome',headless:true,args:['--no-sandbox','--disable-dev-shm-usage']});
@@ -143,6 +145,7 @@ try{
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Non vérifiées ici/);
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
+ assert.equal(await page.$eval('[data-filter="empty"]',e=>e.getAttribute('aria-pressed')),'true');
  assert.match(await page.$eval('#map-count',e=>e.textContent),/1 filtrées/);
  await page.click('[data-filter="all"]');
  await page.type('#station-search','Bercy');
@@ -154,11 +157,26 @@ try{
  await page.click('[data-back]');
  assert.ok(await page.$('#station-search'));
  assert.equal(await page.$eval('#station-search',el=>el.value),'Bercy');
+ const fitBeforeReset=await page.evaluate(()=>window.__mockMap.fitCalls);
  await page.click('#map-reset');
  assert.equal(await page.$eval('#station-search',el=>el.value),'Bercy');
+ assert.ok(await page.evaluate(()=>window.__mockMap.fitCalls)>fitBeforeReset,
+   'Map reset must fit the actual network, not hardcoded Paris');
  await page.click('[data-station="2"]');
+ assert.equal(await page.evaluate(()=>document.activeElement?.hasAttribute('data-back')),true);
  await page.keyboard.press('Escape');
+ assert.equal(await page.evaluate(()=>document.activeElement?.dataset.station),'2');
  assert.ok(await page.$('#station-search'));
+ // Failure must offer a visible self-service recovery without fake data.
+ setDatasetAvailable(false);
+ await page.click('#reload');
+ await page.waitForFunction(()=>!document.getElementById('error-state').hidden);
+ assert.match(await page.$eval('#error-message',e=>e.textContent),/503/);
+ assert.ok(await page.$('#retry-data'));
+ setDatasetAvailable(true);
+ await page.click('#retry-data');
+ await page.waitForFunction(()=>document.getElementById('error-state').hidden);
+ assert.equal(await page.$eval('#map-count',e=>e.dataset.filtered),'4');
  // Representative laptop and mobile breakpoints.
  await page.setViewport({width:1024,height:768,deviceScaleFactor:1});
  await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
@@ -168,8 +186,16 @@ try{
  assert.ok(laptop.w<=laptop.vw+3,'Laptop must not scroll horizontally');
  await page.setViewport({width:390,height:844,deviceScaleFactor:1});
  await new Promise(done=>setTimeout(done,80));
- const mobile=await page.evaluate(()=>({w:document.documentElement.scrollWidth,vw:innerWidth}));
+ const mobile=await page.evaluate(()=>({
+    w:document.documentElement.scrollWidth,vw:innerWidth,
+    navScrollable:document.querySelector('.topnav').scrollWidth >= document.querySelector('.topnav').clientWidth
+ }));
  assert.ok(mobile.w<=mobile.vw+3,'Mobile must not scroll horizontally');
+ assert.ok(mobile.navScrollable,'All four views must remain reachable on mobile');
+ await page.setViewport({width:320,height:700,deviceScaleFactor:1});
+ await new Promise(done=>setTimeout(done,90));
+ assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3),
+   'Small phone must not scroll sideways');
  // External map library unavailable: geographically accurate fallback buttons remain clickable.
  const fallbackPage=await browser.newPage();
  await fallbackPage.setViewport({width:1440,height:900});
