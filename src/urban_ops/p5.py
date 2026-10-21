@@ -200,8 +200,14 @@ def readiness(captures: Iterable[datetime], *, min_days: int = 7,
         return {"ready": False, "reason": "no_real_captures", "captures": 0,
                 "span_days": 0.0, "coverage_estimate": None, "from_utc": None, "through_utc": None}
     days = (times[-1] - times[0]).total_seconds() / 86400
-    slots = 1 + int((times[-1] - times[0]).total_seconds() / 300)
-    coverage = min(1.0, len(times) / slots) if len(times) > 1 else None
+    # A run may archive multiple observations in the same five-minute UTC
+    # window. Only one such observation can establish interval coverage.
+    # This is a *metadata* preflight; replay SHA and station is_usable gates
+    # remain mandatory in the subsequent stage.
+    distinct_slots = len({int(t.timestamp()) // 300 for t in times})
+    slots = (int(times[-1].timestamp()) // 300
+             - int(times[0].timestamp()) // 300 + 1)
+    coverage = min(1.0, distinct_slots / slots) if len(times) > 1 else None
     ready = days >= min_days and len(times) >= min_captures and coverage is not None and coverage >= min_coverage
     if days < min_days:
         reason = "insufficient_calendar_span"
@@ -212,7 +218,11 @@ def readiness(captures: Iterable[datetime], *, min_days: int = 7,
     else:
         reason = "ready"
     return {"ready": ready, "reason": reason, "captures": len(times),
+            "distinct_5m_slots": distinct_slots,
+            "repeated_5m_slot_captures": len(times) - distinct_slots,
+            "expected_5m_slots": slots,
             "span_days": round(days, 3), "coverage_estimate": round(coverage, 4) if coverage is not None else None,
+            "earliest_span_eligibility_utc": (times[0] + timedelta(days=min_days)).isoformat(),
             "from_utc": times[0].isoformat(), "through_utc": times[-1].isoformat()}
 
 
