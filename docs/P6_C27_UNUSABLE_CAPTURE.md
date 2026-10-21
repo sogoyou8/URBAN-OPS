@@ -23,3 +23,30 @@ Un écran Windows affiche un relevé du 21 octobre 2026 à **11 h 06 (Paris, 09 
 ## Test et périmètre
 
 Tester un vrai zéro vélo sur station exploitable, une capture de 0 station utilisable, des captures voisines normales et une période avec une interruption. Le paquet produit reste vérifié SHA-256, construit uniquement sur les archives officielles P3, **sans changer leurs contenus**. Le diagnostic peut identifier un facteur dominant, mais toute correction de qualification doit être décidée séparément et justifiée par les sources brutes. Aucun déploiement public C3.
+
+
+## Diagnostic vérifié sur 48 captures archivées (workflow du 21/10/2026)
+
+Le rapport forensique [GitHub Actions #39578382533](https://github.com/sogoyou8/URBAN-OPS/actions/runs/39578382533), issu du rejeu SQL P3 et de captures SHA-256 vérifiées, relève pour **21/10/2026 09:06:16 UTC (11 h 06 Paris)** :
+
+| Contrôle | Résultat |
+| --- | ---: |
+| Stations sources information / statut | 1 517 / 1 517 |
+| Statuts normalisés et présents | 1 515 |
+| Stations exploitables | 0 |
+| Vélos totaux absents après normalisation | 0 |
+| Bornes totales absentes après normalisation | 0 |
+| **Répartition mécaniques absente après normalisation** | **1 515** |
+| **Répartition électriques absente après normalisation** | **1 515** |
+| Signalements `invalid_counts` | **1 515** |
+| Statuts dépassant 3 600 s de retard | 12 |
+| Statuts avec date légèrement future | 74 |
+| Stations sans location / retour | 16 / 16 |
+| Capture précédente (09:01 UTC) : stations utilisables | 1 284 |
+| Capture suivante (09:11 UTC) : stations utilisables | 1 485 |
+
+**Conclusion démontrée** : le rejet généralisé est causé immédiatement par l'absence de décomposition mécanique/électrique exploitable dans les champs P3 normalisés. Les totaux de vélos et de bornes sont conservés dans les faits SQL, mais ne suffisent pas aux contrôles P3, qui exigent les quatre quantités cohérentes. L'absence de valeurs mécaniques et électriques peut venir d'un champ absent ou d'une structure invalide dans le JSON source : **le seul diagnostic SQL ne permet pas de trancher ces deux explications**. Aucune donnée n'a été remplacée ni supposée. La vérification du fichier Bronze brut serait nécessaire pour attribuer l'origine exacte à une modification ponctuelle du flux amont.
+
+**Décision produit** : garder les contrôles P3 inchangés et afficher **« Données indisponibles »** pour cette capture, plutôt que « 0 vélo » ; aucune affirmation sur une disparition des vélos et aucune interpolation vers les captures voisines.
+
+Rapport téléchargeable sous **urban-ops-p3-zero-usable-diagnostic** dans le workflow lié.
