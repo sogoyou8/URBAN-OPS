@@ -60,6 +60,10 @@ try{
   assert.match(await page.$eval('.eyebrow',e=>e.textContent),/VÉLIB’ MÉTROPOLE/);
   assert.match(await page.$eval('#headline-description',e=>e.textContent),/stations Vélib’/);
   assert.match(await page.$eval('.scope-note',e=>e.textContent),/pas de temps réel/);
+  assert.equal(await page.$eval('#timeline-heading',e=>e.textContent),'Historique des vélos');
+  assert.match(await page.$eval('.timeline-meta',e=>e.textContent),/CAPTURES INCOMPLÈTES/);
+  assert.match(await page.$eval('.guide-method',e=>e.textContent),/points sont orange/i);
+  assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
   assert.ok(await page.$('.timeline-svg'),'A real archive must render the coverage-aware history');
   assert.match(await page.$eval('.timeline-svg',e=>e.getAttribute('aria-label')),/zéro/);
   await page.click('#open-guide');
