@@ -109,7 +109,7 @@ function filtered() {
 }
 function setViewportCount(filteredCount, markers, fallback=false){
   const counts=viewportCounts(filteredCount,markers);
-  const label=`${display(counts.filtered)} filtrées · ${display(counts.visible)} visibles · ${display(counts.markers)} repères`;
+  const label=`${display(counts.filtered)} selon les filtres · ${display(counts.visible)} sur la carte · ${display(counts.markers)} repères`;
   const el=$('map-count');
   el.textContent=label;
   el.dataset.filtered=String(counts.filtered);
@@ -231,7 +231,9 @@ function drawMapMarkers(){
     state.markerPositions=markers;
     for(const p of markers){
       const clustered=p.count>1;
-      const radius=p.selected?9:clustered?Math.min(17,8+Math.log2(p.count)*2):4.4;
+      // Compact but legible metropolitan markers; the cluster count remains
+      // exact, and zooming in still reveals each real underlying station.
+      const radius=p.selected?9:clustered?Math.min(13.5,7+Math.log2(p.count)*1.45):4.4;
       const color=COLORS[p.condition];
       ctx.beginPath();ctx.arc(p.x,p.y,radius,0,Math.PI*2);
       ctx.fillStyle=clustered?'#183a39':color;ctx.globalAlpha=.96;ctx.fill();
@@ -498,6 +500,22 @@ for(const btn of document.querySelectorAll('.nav'))btn.addEventListener('click',
 for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener('click',()=>{
   state.filter=btn.dataset.filter;syncFilterButtons();
   state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
+});
+// C2.6: Compact is the default desktop view; expanding never changes data,
+// the current station selection, the map camera, or the chosen history capture.
+$('history-size-toggle').addEventListener('click',()=>{
+  const section=$('history-section'),button=$('history-size-toggle');
+  const expanded=section.classList.toggle('history-expanded');
+  section.classList.toggle('history-compact',!expanded);
+  button.setAttribute('aria-pressed',String(expanded));
+  button.innerHTML=expanded?'Réduire <span aria-hidden="true">↙</span>':
+    'Développer <span aria-hidden="true">↗</span>';
+  button.title=expanded?'Redonner de la place à la carte':'Agrandir les graphiques sans quitter le cockpit';
+  requestAnimationFrame(()=>{
+    if(state.mapReady&&state.map){state.map.resize();drawMapMarkers();}
+    else if(state.mapFailed)fallbackMap(filtered());
+    if(state.dataset)renderTimeline();
+  });
 });
 let historyResizeFrame=null;
 window.addEventListener('resize',()=>{
