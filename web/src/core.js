@@ -103,7 +103,9 @@ export function layoutMapMarkers(stations, project, width, height, zoom=11, sele
         p.x < 0 || p.y < 0 || p.x > width || p.y > height) continue;
     // Always give the selected station its own dot.
     const chosen=station.id===selectedId;
-    const key=chosen ? 'selected-'+station.id : Math.floor(p.x/cell)+':'+Math.floor(p.y/cell);
+    // Nearest-cell quantization avoids splitting adjacent (subpixel) stations
+    // when their projected coordinate lies exactly on a cell boundary.
+    const key=chosen ? 'selected-'+station.id : Math.round(p.x/cell)+':'+Math.round(p.y/cell);
     let group=cells.get(key);
     if(!group){
       group={x:0,y:0,lon:0,lat:0,count:0,ids:[],available:0,empty:0,unknown:0,selected:chosen};
