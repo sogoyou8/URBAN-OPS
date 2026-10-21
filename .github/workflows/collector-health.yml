@@ -26,7 +26,7 @@ jobs:
         run: |
           python -m scripts.audit_collector \
             --repo "$GH_REPO" --window-hours 24 --cadence-minutes 5 \
-            --stale-minutes 90 --fail-on-stale \
+            --stale-minutes 90 --fail-on-stale --fail-on-degraded \
             --summary "$GITHUB_STEP_SUMMARY" --json-out collector-health.json
       - name: Save diagnostic report
         if: always()
