@@ -210,3 +210,59 @@ html,body{max-width:100%;overflow-x:clip}
   }
   .map-legend{bottom:36px}
 }
+
+
+/* P6 C2.2 — Geographic fallback remains readable without external map tiles. */
+.fallback-point.cluster{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  width:25px;
+  height:25px;
+  padding:1px;
+  transform:translate(-50%,-50%);
+  background:#183f36;
+  border:1.5px solid #b3eacb;
+  color:#f3fff8;
+  border-radius:50%;
+  box-shadow:0 2px 7px #0411169c;
+  font:600 10px var(--mono);
+}
+.fallback-point.cluster:hover,.fallback-point.cluster:focus-visible{
+  background:#2d7055;
+  outline:2px solid #f3fff8;
+  outline-offset:2px;
+  z-index:3;
+}
+.fallback-caption{
+  top:auto;
+  bottom:82px;
+  transform:translateX(-50%);
+  font-size:9px;
+  letter-spacing:.05em;
+  white-space:nowrap;
+  z-index:3;
+}
+@media(max-width:540px){
+  /* Keep the map title and filter controls visually distinct from the data. */
+  .map-panel::before{
+    content:'';
+    position:absolute;
+    z-index:5;
+    top:0;
+    left:0;
+    right:0;
+    height:171px;
+    background:linear-gradient(180deg,#07171cf9 0%,#0a1b20f1 70%,#0a1b2000 100%);
+    pointer-events:none;
+  }
+  .map-header,.map-control{z-index:6}
+  .map-legend,.coordinate-label{z-index:6}
+  .fallback-caption{
+    font-size:8px;
+    max-width:90%;
+    white-space:normal;
+    text-align:center;
+    bottom:82px;
+  }
+}
