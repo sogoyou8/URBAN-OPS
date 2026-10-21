@@ -495,7 +495,7 @@ function renderTimeline() {
     const color=p.status==='reduced'?'#f5b17c':'#73a9c9';
     return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations avec données utilisables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
   }).join('');
-  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos comptés. Les points orange signalent des captures incomplètes. La rangée du bas indique combien de stations ont des données utilisables.">
+  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos comptés, échelle commençant à zéro. Les points orange signalent des captures incomplètes. La rangée du bas indique combien de stations ont des données utilisables.">
     <line x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}" stroke="#4a6767"/>
     <line x1="${left}" x2="${W-right}" y1="${top}" y2="${top}" stroke="#355055" stroke-dasharray="2 6"/>
     <text x="${left-5}" y="${top+3}" font-size="9" text-anchor="end" fill="#b5ced0">${display(ceiling)}</text>
