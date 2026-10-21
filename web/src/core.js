@@ -149,11 +149,16 @@ export function localTime(at){return new Intl.DateTimeFormat('fr-FR',{dateStyle:
  * Cluster at low zoom to preserve clickability and performance. */
 export function layoutMapMarkers(stations, project, width, height, zoom=11, selectedId=null) {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width<=0 || height<=0) return [];
-  // Overview clustering scales with the actual viewport. On a phone, the
-  // network has fewer screen pixels; keep markers legible instead of drawing
-  // hundreds of overlapping dots. At street zoom, retain fine picking.
-  const cell=zoom < 13.2 ? (width<=540 ? 46 : width<=860 ? 34 : 25)
-                           : zoom < 16 ? 11 : 8;
+  // C2.6: stronger clustering for the *network overview*, where adjacent
+  // cluster circles otherwise obscure the Paris basemap. Zoom progressively
+  // reveals detail; street zoom retains the original fine picking precision.
+  // No station, condition or station ID is discarded by this screen grouping.
+  const overview=zoom<12.6;
+  const cell=overview
+    ? (width<=540?62:width<=860?52:50)
+    : zoom<13.2
+      ? (width<=540?44:width<=860?36:34)
+      : zoom<16 ? 11 : 8;
   const cells=new Map();
   for (const station of stations) {
     if (!Number.isFinite(station.lon)||!Number.isFinite(station.lat)) continue;
