@@ -86,3 +86,23 @@ Recette manuelle : après `git pull --ff-only origin main` puis `powershell -Exe
 - **Comptages géographiques** : trois valeurs distinctes : **stations filtrées sur tout le réseau**, **stations dont les coordonnées projetées tombent dans la fenêtre cartographique** et **repères réellement dessinés** (un repère peut contenir plusieurs stations). Les points entièrement hors du viewport sont exclus du calcul et du tracé, au lieu de la marge de 20 pixels utilisée jusqu'ici. Un intitulé détaillé rappelle qu'un groupe représente plusieurs stations. Même distinction en mode de secours sans tuiles.
 - **Panneaux** : tout changement de section réinitialise explicitement le défilement du panneau; parcours Fiabilité → stations non qualifiées → fiche → motif → retour couvert par test Chromium. L'ouverture d'une fiche conserve les filtres existants.
 - **Validation** : tests Node du périmètre écran et des grappes, test Chromium en zoom fort puis changement de section, navigation répétée dans la même section et défilement, plus le pipeline P3 et l'export de véritables archives. Aucun nouveau service ni déploiement public.
+
+
+## C2.3 — Compréhension dès l'arrivée et historique honnête (21/10/2026)
+
+**Objectif produit.** Un visiteur non familier de P3–P6 doit savoir immédiatement qu'il consulte un **observatoire du réseau Vélib’ Métropole**, des **captures historiques** et non une application de disponibilité temps réel. L'introduction tient dans le bandeau déjà présent (sans écran de bienvenue, sans panneau latéral permanent). Les quatre vues gardent des descriptions en français courant.
+
+**« Comprendre ».** Un bouton discret en en-tête ouvre, sans quitter le cockpit, une fenêtre contenant : le sujet, la provenance officielle GBFS/ODbL, les limites des chiffres, la distinction « station non qualifiée ≠ station vide », les quatre sections et la validation encore absente de P5. Une explication dépend de la section active. La fenêtre est utilisable au clavier (focus initial sur Fermer, tabulation contenue dans la fenêtre, Échap / clic arrière-plan pour fermer et retour du focus au déclencheur). Le panneau défile en interne sur les petits écrans.
+
+**Historique P3.** Les colonnes `history[].bikes`, `history[].usable`, `history[].observed` et `history[].connected_to_previous` du **replay vérifié P3** sont utilisées sans les réécrire. On affiche :
+- l'axe des vélos **à partir de 0**, avec borne haute chiffrée (au lieu de zoomer sur le minimum local) ;
+- les points de capture authentiques avec leur nombre de vélos ; au survol, nombre de stations utilisables rapporté au nombre de stations référencées ;
+- une bande de petites marques bleues/orange pour la **couverture des stations exploitables**, distincte du total de vélos ;
+- un **point orange** si une capture comptabilise strictement moins de **90 % du maximum des stations exploitables observé dans la fenêtre affichée**. Ce seuil de 10 % de baisse est une **heuristique de présentation**, choisie pour signaler une non-comparabilité potentielle ; ce n'est pas un changement des critères de qualité P3 ni une mesure de la mobilité ;
+- **aucun segment** avant ou après un point orange ; les lacunes temporelles déjà détectées restent sans interpolation. Si le nombre de stations exploitables est inconnu, la comparabilité est également inconnue, et aucune ligne continue n'est inventée.
+
+Le point orange garde sa **véritable valeur** de vélos ; aucune donnée n'est corrigée, imputée ou supprimée. Le visiteur ne doit pas interpréter ce creux comme une disparition attestée de vélos, puisqu'il peut aussi refléter un rejet de nombreuses stations.
+
+**Recette** : tests purs de rupture, du seuil, des métadonnées manquantes, de l'absence de remplacement des valeurs et des créneaux temporels ; tests Chromium synthétiques à 1440×900, 1024×768, 390×844 et 320×700 (ouverture/fermeture du guide, focus, maintien du sans-scroll et lisibilité). L'export réel signé SHA-256 est contrôlé en CI sans déploiement et produit une capture supplémentaire `guide-real-1440x900.png`. La vérification du fond OpenFreeMap sur le navigateur Windows de l'utilisateur demeure distincte des tests sans Internet.
+
+**Ce chantier ne modifie pas P3, les règles d'éligibilité P5, l'ingestion, les captures archivées, les sommes de contrôle, ou les décisions de publication.**
