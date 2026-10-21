@@ -115,8 +115,8 @@ try{
  assert.match(await page.$eval('.history-date-range',e=>e.textContent),/20 octobre/);
  assert.match(await page.$eval('.timeline-svg',e=>e.textContent),/Vélos comptés/);
  assert.match(await page.$eval('.timeline-svg',e=>e.textContent),/Stations mesurées/);
- assert.equal(await page.$eval('.history-station-bar',els=>els.length),4);
- assert.equal(await page.$eval('.history-bike-dot',els=>els.length),4);
+ assert.equal(await page.$$eval('.history-station-bar',els=>els.length),4);
+ assert.equal(await page.$$eval('.history-bike-dot',els=>els.length),4);
  assert.equal(await page.$eval('.history-window',e=>e.textContent),'15 min');
  assert.equal(await page.$eval('#timeline-gap',e=>e.textContent),'5 min');
  assert.match(await page.$eval('#timeline-explain',e=>e.textContent),/1 capture incomplète \(orange\)/);
