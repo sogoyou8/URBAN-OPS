@@ -655,3 +655,11 @@ html,body{max-width:100%;overflow-x:clip}
   .bottomline.history-compact .history-legend{font-size:9px}
   .bottomline.history-compact .history-plot-head{font-size:10px}
 }
+
+
+/* C2.7 — New archive does not imply reliable measurements. */
+.truth.unusable strong,.truth.unusable #freshness-label{color:#f1b394}
+.truth.unusable .truth-dot{background:#f1a47d;box-shadow:0 0 0 3px #f1a47d22}
+.truth.unusable small{color:#e2baa7}
+.history-inspection-status.warn{color:#f4ad87}
+.history-point:has(.history-hit):hover .history-bike-dot{stroke:#e5f5ea;stroke-width:2}
