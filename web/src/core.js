@@ -90,7 +90,11 @@ export function localTime(at){return new Intl.DateTimeFormat('fr-FR',{dateStyle:
  * Cluster at low zoom to preserve clickability and performance. */
 export function layoutMapMarkers(stations, project, width, height, zoom=11, selectedId=null) {
   if (!Number.isFinite(width) || !Number.isFinite(height) || width<=0 || height<=0) return [];
-  const cell=zoom < 13.2 ? 25 : zoom < 16 ? 11 : 8;
+  // Overview clustering scales with the actual viewport. On a phone, the
+  // network has fewer screen pixels; keep markers legible instead of drawing
+  // hundreds of overlapping dots. At street zoom, retain fine picking.
+  const cell=zoom < 13.2 ? (width<=540 ? 46 : width<=860 ? 34 : 25)
+                           : zoom < 16 ? 11 : 8;
   const cells=new Map();
   for (const station of stations) {
     if (!Number.isFinite(station.lon)||!Number.isFinite(station.lat)) continue;
@@ -99,7 +103,12 @@ export function layoutMapMarkers(stations, project, width, height, zoom=11, sele
         p.x < 0 || p.y < 0 || p.x > width || p.y > height) continue;
     // Always give the selected station its own dot.
     const chosen=station.id===selectedId;
-    const key=chosen ? 'selected-'+station.id : Math.floor(p.x/cell)+':'+Math.floor(p.y/cell);
+    // Overview: nearest-cell grouping avoids artificial splits of adjacent
+    // dots at pixel boundaries. Street zoom keeps the established smaller
+    // floor-grid so close but distinct stations remain independently pickable.
+    const cx=zoom < 13.2 ? Math.round(p.x/cell) : Math.floor(p.x/cell);
+    const cy=zoom < 13.2 ? Math.round(p.y/cell) : Math.floor(p.y/cell);
+    const key=chosen ? 'selected-'+station.id : cx+':'+cy;
     let group=cells.get(key);
     if(!group){
       group={x:0,y:0,lon:0,lat:0,count:0,ids:[],available:0,empty:0,unknown:0,selected:chosen};
