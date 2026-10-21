@@ -95,3 +95,38 @@ def test_readiness_is_only_repository_filename_inventory(tmp_path):
     f.write_text(json.dumps(d),encoding='utf-8')
     with pytest.raises(ValueError,match='Unverified P5 inventory'):
         main(['--db-url','sqlite:///'+str(p),'--output',str(out),'--p5-inventory',str(f)])
+
+def test_latest_success_with_zero_usable_is_not_zero_available(tmp_path):
+    p=tmp_path/'zero.sqlite';create_db(p)
+    with sqlite3.connect(p) as db:
+        db.execute("UPDATE fact_station_status SET is_usable=0 WHERE run_id='b'")
+        db.commit()
+    d=export('sqlite:///'+str(p))
+    assert d['metrics']['observed']==2
+    assert d['metrics']['usable']==0
+    assert d['metrics']['bikes'] is None
+    assert d['metrics']['docks'] is None
+    assert d['metrics']['empty'] is None
+    assert d['capture_quality']['status']=='no_usable_stations'
+    last=d['history'][-1]
+    assert last['usable']==0 and last['bikes'] is None and last['empty'] is None
+    assert last['at']==d['captured_at']  # Keep the actual 0-usable capture
+    assert all(station['bikes'] is None for station in d['stations'])
+    assert d['history'][0]['bikes']==5  # Preserve earlier valid history
+
+def test_sql_forensic_anomaly_neighbors_do_not_invent_cause(tmp_path):
+    from scripts.diagnose_p3_capture import diagnose
+    p=tmp_path/'audit.sqlite';create_db(p)
+    with sqlite3.connect(p) as db:
+        db.execute("UPDATE fact_station_status SET is_usable=0 WHERE run_id='b'")
+        db.commit()
+    audit=diagnose('sqlite:///'+str(p))
+    assert audit['status']=='anomalies_detected'
+    assert audit['runs_examined']==2
+    assert len(audit['anomalies'])==1
+    problem=audit['anomalies'][0]
+    assert problem['usable']==0 and problem['observed']==2
+    assert problem['previous_run']['usable']==1
+    assert problem['following_run'] is None
+    assert problem['diagnostic_factors_not_mutually_exclusive']['recorded']==2
+    assert problem['issue_counts_not_distinct_station_counts'][0]['code']=='stale_station_report'
