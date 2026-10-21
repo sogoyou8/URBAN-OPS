@@ -84,16 +84,18 @@ export function assessHistory(history, catalogStations, relativeFloor=0.90){
   const counts=history.map(item=>Number.isInteger(item.usable)&&item.usable>=0?item.usable:null);
   const baseline=counts.some(n=>n!==null)?Math.max(...counts.filter(n=>n!==null)):null;
   const countAvailable=Number.isInteger(catalogStations)&&catalogStations>0;
-  let reducedCount=0,unknownCount=0;
+  let reducedCount=0,unknownCount=0,unavailableCount=0;
   const points=history.map((item,i)=>{
-    const usable=counts[i],valid=usable!==null&&Number.isFinite(item.bikes)&&item.bikes>=0;
+    const usable=counts[i],valid=usable!==null&&usable>0&&Number.isFinite(item.bikes)&&item.bikes>=0;
     const referenceRatio=valid&&baseline>0?usable/baseline:null;
     const catalogRatio=valid&&countAvailable?usable/catalogStations:null;
     // Lack of evidence must NOT silently masquerade as "normal".
-    const status=!valid||referenceRatio===null?'unknown'
+    const status=usable===0?'unavailable':
+      !valid||referenceRatio===null?'unknown'
       :referenceRatio<relativeFloor?'reduced':'comparable';
     if(status==='reduced')reducedCount++;
     if(status==='unknown')unknownCount++;
+    if(status==='unavailable')unavailableCount++;
 
     return {...item,referenceRatio,catalogRatio,status,
       connected_to_previous:status==='comparable'&&i>0&&
@@ -104,7 +106,8 @@ export function assessHistory(history, catalogStations, relativeFloor=0.90){
     points[i].connected_to_previous=points[i].connected_to_previous &&
       points[i-1].status==='comparable';
   }
-  return {points,baselineUsable:baseline,reducedCount,unknownCount,relativeFloor};
+  return {points,baselineUsable:baseline,reducedCount,unavailableCount,
+    incompleteCount:reducedCount+unavailableCount,unknownCount,relativeFloor};
 }
 
 /** C2.5: A disclosed detailed scale for comparable, real history values.
