@@ -63,7 +63,7 @@ jobs:
       - name: Prepare GitHub Pages (repository Pages must be enabled)
         uses: actions/configure-pages@v5
       - name: Upload only the checked release bundle
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist/p6-public
       - name: Deploy to GitHub Pages
