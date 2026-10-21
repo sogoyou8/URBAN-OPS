@@ -20,8 +20,10 @@ const fixture={
  captured_at:at,generated_at:at,source:'SYNTHETIC BROWSER FIXTURE NOT FOR PUBLICATION',
  stations,metrics:{stations:4,observed:4,usable:3,unusable:1,bikes:16,docks:30,empty:1,capture_count:2},
  issues:[{code:'stale_station_report',count:1}],
- history:[{at:'2026-10-20T01:00:00Z',bikes:15,gap_minutes:null,connected_to_previous:false},
-          {at:'2026-10-20T01:05:00Z',bikes:16,gap_minutes:5,connected_to_previous:true}],
+ history:[{at:'2026-10-20T01:00:00Z',bikes:15,usable:3,observed:4,gap_minutes:null,connected_to_previous:false},
+          {at:'2026-10-20T01:05:00Z',bikes:4,usable:1,observed:4,gap_minutes:5,connected_to_previous:true},
+          {at:'2026-10-20T01:10:00Z',bikes:16,usable:3,observed:4,gap_minutes:5,connected_to_previous:true},
+          {at:'2026-10-20T01:15:00Z',bikes:17,usable:3,observed:4,gap_minutes:5,connected_to_previous:true}],
  forecast:{status:'unavailable',horizon_minutes:30},
  quality_diagnostics:{not_observed:0,observed_but_unusable:1,observed_non_operational:1,
    stations_with_multiple_issue_events:0},
@@ -105,6 +107,24 @@ try{
  assert.equal(await page.$eval('#map-count',el=>el.dataset.visible),'4');
  assert.ok(initial.pixel>0,'Geographic marker MUST render even when style layers never load');
  assert.ok(initial.pageHeight<=initial.viewport+3,'Desktop page should not vertically scroll');
+ assert.match(await page.$eval('.eyebrow',el=>el.textContent),/VÉLIB’ MÉTROPOLE/);
+ assert.match(await page.$eval('#headline-description',el=>el.textContent),/stations Vélib’/);
+ assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
+ assert.equal(await page.$eval('#timeline-quality',el=>el.textContent),'1',
+   'One actual low-coverage observation must be visible as a warning');
+ assert.equal(await page.$$eval('.timeline-svg polyline',els=>els.length),1,
+   'Only the last two comparable captures may form a connected line');
+ assert.match(await page.$eval('.timeline-svg',el=>el.getAttribute('aria-label')),/zéro/);
+ await page.click('#open-guide');
+ assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),false);
+ assert.equal(await page.$eval('#open-guide',el=>el.getAttribute('aria-expanded')),'true');
+ assert.equal(await page.evaluate(()=>document.activeElement.id),'close-guide');
+ assert.match(await page.$eval('#guide-context-text',el=>el.textContent),/stations Vélib’/);
+ assert.match(await page.$eval('.guide-method',el=>el.textContent),/10 %/);
+ await page.keyboard.press('Escape');
+ assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),true);
+ assert.equal(await page.evaluate(()=>document.activeElement.id),'open-guide');
+
  // Zoomed viewport cannot continue to show the network total as if all were visible.
  await page.evaluate(()=>{window.__mockMap.zoom=16;window.__mockMap.emitMove()});
  const zoomed=await page.$eval('#map-count',e=>({total:+e.dataset.filtered,visible:+e.dataset.visible}));
@@ -122,6 +142,10 @@ try{
  await page.click('[data-sector="NE"]');
  assert.match(await page.$eval('#map-count',e=>e.textContent),/filtrées/);
  await page.click('[data-view="fiabilite"]');
+ await page.click('#open-guide');
+ assert.match(await page.$eval('#guide-context-title',el=>el.textContent),/Fiabilité/);
+ await page.click('#close-guide');
+
  assert.equal(await page.evaluate(()=>window.__mockMap.getZoom()),11);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Signal station trop ancien/);
  assert.match(await page.$eval('#inspector-content',e=>e.textContent),/observations reçues, non exploitables/);
@@ -203,6 +227,14 @@ try{
  assert.ok(mobile.headingBottom+6<=mobile.filterTop,'Map title must remain above filters on mobile');
  assert.ok(mobile.countBottom+6<=mobile.filterTop,'Map counters must remain above filters on mobile');
  assert.equal(mobile.kpiFootStyle,'normal','Mobile KPI descriptions must be readable, not ellipsized');
+ await page.click('#open-guide');
+ const dialog=await page.evaluate(()=>{
+   const e=document.querySelector('.guide-panel').getBoundingClientRect();
+   return {x:e.x,width:e.width,viewport:innerWidth};
+ });
+ assert.ok(dialog.x>=0&&dialog.x+dialog.width<=dialog.viewport+2,'Guide stays inside mobile viewport');
+ await page.keyboard.press('Escape');
+
  await page.setViewport({width:320,height:700,deviceScaleFactor:1});
  await new Promise(done=>setTimeout(done,90));
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3),
