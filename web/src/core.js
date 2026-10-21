@@ -107,6 +107,28 @@ export function assessHistory(history, catalogStations, relativeFloor=0.90){
   return {points,baselineUsable:baseline,reducedCount,unknownCount,relativeFloor};
 }
 
+/** C2.5: A disclosed detailed scale for comparable, real history values.
+ * Low-coverage observations remain unaltered; the renderer marks any value
+ * outside this scale with an arrow and includes its actual value in details.
+ */
+export function historyDetailScale(points,key='bikes') {
+  const valid=points.filter(p=>Number.isFinite(p[key])&&p[key]>=0);
+  if(!valid.length)return null;
+  const comparable=valid.filter(p=>p.status==='comparable');
+  const reference=comparable.length?comparable:valid;
+  const values=reference.map(p=>p[key]),lo=Math.min(...values),hi=Math.max(...values);
+  const minimumSpan=Math.max(10,Math.ceil(hi*0.025));
+  const span=Math.max(hi-lo,minimumSpan);
+  const padding=Math.max(2,Math.ceil(span*0.18));
+  const roughStep=Math.max(1,(span+padding*2)/3);
+  const power=10**Math.floor(Math.log10(roughStep));
+  const step=[1,2,5,10].map(m=>m*power).find(s=>s>=roughStep)||10*power;
+  const min=Math.max(0,Math.floor((lo-padding)/step)*step);
+  const max=Math.max(min+step,Math.ceil((hi+padding)/step)*step);
+  return {min,max,referenceCount:reference.length,
+    offScaleCount:valid.filter(p=>p[key]<min||p[key]>max).length};
+}
+
 export function relativeAge(at,now=Date.now()) {
   const age=Math.max(0,Math.floor((now-Date.parse(at))/60000));
   if(!Number.isFinite(age))return 'heure indisponible';

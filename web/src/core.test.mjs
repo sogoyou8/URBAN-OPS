@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,assessHistory,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,viewportCounts,issueLabel,p5Gate,qualityReasons} from './core.js';
+import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,assessHistory,historyDetailScale,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,viewportCounts,issueLabel,p5Gate,qualityReasons} from './core.js';
 const stations=[
  {id:'1',name:'A & <B>',code:'001',lat:48.8,lon:2.2,usable:true,condition:'available',bikes:5,docks:5},
  {id:'2',name:'Deux',code:'002',lat:48.9,lon:2.4,usable:true,condition:'empty',bikes:0,docks:10},
@@ -145,4 +145,27 @@ test('C2.4: missing station information remains unknown, not zero',()=>{
  assert.equal(qualityReasons({...stations[2],observed:false})[0].includes('Aucune donnée'),true);
  assert.equal(qualityReasons({...stations[2],observed:true,usable:false,issues:[]})[0].includes('ne peuvent pas être utilisés'),true);
  assert.equal(summary(stations).bikes,5);
+});
+
+
+test('C2.5: detailed scale uses comparable observations, without rewriting low-coverage values',()=>{
+ const values=[
+  {at:'2026-10-21T05:00:00Z',bikes:19448,status:'comparable'},
+  {at:'2026-10-21T05:05:00Z',bikes:16290,status:'reduced'},
+  {at:'2026-10-21T05:10:00Z',bikes:19410,status:'comparable'},
+  {at:'2026-10-21T05:15:00Z',bikes:19250,status:'comparable'},
+ ];
+ const before=JSON.stringify(values),scale=historyDetailScale(values);
+ assert.ok(scale.min<19250 && scale.max>19448,'Comparable band must remain readable');
+ assert.ok(scale.min>16290,'Reduced-coverage value must not flatten valid values');
+ assert.equal(scale.offScaleCount,1,'Reduced-coverage point is visibly out of scale');
+ assert.equal(scale.referenceCount,3);
+ assert.equal(JSON.stringify(values),before,'Chart scale never changes the real observations');
+});
+test('C2.5: unknown or sparse history returns a safe and explicit scale',()=>{
+ assert.equal(historyDetailScale([]),null);
+ const one=historyDetailScale([{bikes:100,status:'unknown'}]);
+ assert.ok(one.min>=0&&one.max>100);
+ assert.equal(one.referenceCount,1);
+ assert.equal(one.offScaleCount,0);
 });

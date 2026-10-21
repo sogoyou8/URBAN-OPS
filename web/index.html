@@ -53,10 +53,17 @@
           <div class="inspector-content" id="inspector-content"><div class="sidebar-placeholder">Chargement des stations…</div></div>
         </aside>
       </section>
-      <section class="bottomline" aria-label="Historique des collectes">
-        <div class="timeline-title"><span class="panel-kicker">C / HISTORIQUE</span><h2 id="timeline-heading">Historique des vélos</h2><p id="timeline-explain">Chaque point indique les vélos comptés lors d'une capture.</p></div>
+      <section class="bottomline" aria-label="Historique interactif des vélos" id="history-section">
+        <div class="timeline-title">
+          <span class="panel-kicker">C / HISTORIQUE</span>
+          <h2 id="timeline-heading">Historique des vélos</h2>
+          <p id="timeline-explain">Les points orange signalent des captures incomplètes.</p>
+          <div class="history-inspection" id="history-inspection" role="status" aria-live="polite" aria-atomic="true">
+            <span class="history-inspection-title">Choisissez une capture sur le graphique.</span>
+          </div>
+        </div>
         <div class="timeline-plot" id="timeline-plot"><div class="timeline-empty">Lecture de l'historique archivé…</div></div>
-        <div class="timeline-meta"><strong id="timeline-count">—</strong><small>CAPTURES UTILISÉES</small><strong id="timeline-gap">—</strong><small>PLUS GRANDE PAUSE</small><strong id="timeline-quality">—</strong><small>CAPTURES INCOMPLÈTES</small></div>
+        <div class="timeline-meta"><strong id="timeline-count">—</strong><small>CAPTURES UTILISÉES</small><strong id="timeline-gap">—</strong><small>INTERVALLE MAX.</small><strong id="timeline-quality">—</strong><small>CAPTURES INCOMPLÈTES</small></div>
       </section>
       <footer class="footer"><span>URBAN OPS © 2026</span><span>DONNÉES ARCHIVÉES <i> / </i> PAS DE TEMPS RÉEL</span><a href="https://www.velib-metropole.fr/donnees-open-data-gbfs-du-service-velib-metropole" target="_blank" rel="noopener noreferrer">DONNÉES VÉLIB' · ODbL ↗</a></footer>
     </main>

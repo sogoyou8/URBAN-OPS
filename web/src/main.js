@@ -1,5 +1,6 @@
+import {renderHistory} from './history.js';
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
-         historySegments, assessHistory, relativeAge, captureFreshness, html, display, pct, localTime,
+         relativeAge, captureFreshness, html, display, pct, localTime,
          layoutMapMarkers, pickMapMarker, viewportCounts, issueLabel, p5Gate, qualityReasons } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -454,66 +455,7 @@ function bindStationRows(){
   document.querySelectorAll('[data-station]').forEach(btn=>btn.onclick=()=>selectStation(btn.dataset.station));
 }
 
-function renderTimeline() {
-  const history=state.dataset.history;
-  $('timeline-count').textContent=display(history.length);
-  const gaps=history.slice(1).map(x=>x.gap_minutes).filter(Number.isFinite);
-  $('timeline-gap').textContent=gaps.length?`${Math.max(...gaps).toLocaleString('fr-FR',{maximumFractionDigits:1})} min`:'—';
-  const target=$('timeline-plot');
-  const assessment=assessHistory(history,state.dataset.metrics.stations);
-  $('timeline-quality').textContent=assessment.unknownCount?'—':display(assessment.reducedCount);
-  $('timeline-quality').title=assessment.unknownCount?'Données manquantes pour certaines captures':
-    `${assessment.reducedCount} captures avec moins de stations utilisables que les autres`;
-  const valid=assessment.points.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0&&Number.isFinite(Date.parse(p.at)));
-  if(valid.length<2){
-    target.innerHTML='<div class="timeline-empty">Pas assez de captures pour afficher l’évolution.</div>';
-    $('timeline-explain').textContent='Certaines données manquent : impossible de montrer la courbe.';
-    return;
-  }
-  // Avoid the misleading impression that historical totals plunge towards zero:
-  // the axis is explicitly anchored at zero rather than at the sample minimum.
-  const max=Math.max(...valid.map(p=>p.bikes)),ceiling=Math.max(1000,Math.ceil(max/2000)*2000);
-  const first=Date.parse(valid[0].at),last=Date.parse(valid.at(-1).at),duration=Math.max(1,last-first);
-  const W=680,H=94,left=43,right=12,top=10,bottom=65;
-  const xy=p=>[left+(W-left-right)*(Date.parse(p.at)-first)/duration,
-                bottom-(bottom-top)*p.bikes/ceiling];
-  const lines=historySegments(assessment.points).map(segment=>{
-    const pts=segment.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0);
-    return pts.length<2?'':`<polyline points="${pts.map(p=>xy(p).map(n=>n.toFixed(2)).join(',')).join(' ')}" fill="none" stroke="#91d9b5" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`;
-  }).join('');
-  const dots=valid.map(p=>{
-    const [x,y]=xy(p);
-    const color=p.status==='reduced'?'#f5b17c':p.status==='unknown'?'#899fac':'#bce6cf';
-    const cover=p.catalogRatio===null?'Nombre de stations inconnu':`${display(p.usable)} / ${display(state.dataset.metrics.stations)} stations avec données utilisables (${pct(p.catalogRatio)})`;
-    const reason=p.status==='reduced'?' · capture incomplète, comparaison à prendre avec précaution':
-      p.status==='unknown'?' · données insuffisantes pour comparer':' · nombre de stations comparable';
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${p.status==='reduced'?3.8:2.6}" fill="${color}" stroke="#0a191c" stroke-width="1"><title>${html(localTime(p.at))} · ${display(p.bikes)} vélos comptabilisés · ${html(cover+reason)}</title></circle>`;
-  }).join('');
-  // Second reading on the same time axis: coverage of usable station observations.
-  const coverageDots=valid.filter(p=>p.catalogRatio!==null).map(p=>{
-    const x=xy(p)[0],y=77+7*(1-p.catalogRatio);
-    const color=p.status==='reduced'?'#f5b17c':'#73a9c9';
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations avec données utilisables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
-  }).join('');
-  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos comptés, échelle commençant à zéro. Les points orange signalent des captures incomplètes. La rangée du bas indique combien de stations ont des données utilisables.">
-    <line x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}" stroke="#4a6767"/>
-    <line x1="${left}" x2="${W-right}" y1="${top}" y2="${top}" stroke="#355055" stroke-dasharray="2 6"/>
-    <text x="${left-5}" y="${top+3}" font-size="9" text-anchor="end" fill="#b5ced0">${display(ceiling)}</text>
-    <text x="${left-5}" y="${bottom+3}" font-size="9" text-anchor="end" fill="#b5ced0">0</text>
-    ${lines}${dots}
-    <line x1="${left}" x2="${W-right}" y1="80" y2="80" stroke="#264a5a"/>${coverageDots}
-  </svg>
-  <div class="timeline-dates" aria-hidden="true"><span>${html(localTime(valid[0].at))}</span><span>${html(localTime(valid.at(-1).at))}</span></div>`;
-  const gapCount=gaps.filter(x=>x>20).length,notes=[];
-  if(assessment.reducedCount){
-    const n=assessment.reducedCount;
-    notes.push(`${display(n)} ${n===1?'capture incomplète':'captures incomplètes'} (orange)`);
-  }
-  if(gapCount)notes.push(`${display(gapCount)} ${gapCount===1?'pause':'pauses'} de plus de 20 min`);
-  if(assessment.unknownCount)notes.push('données manquantes pour certaines captures');
-  const legend='Points du bas : stations mesurées.';
-  $('timeline-explain').textContent=notes.length?notes.join(' · ')+'. '+legend:legend;
-}
+function renderTimeline(){if(state.dataset)renderHistory(state.dataset);}
 
 function renderAll(){updateNav();syncFilterButtons();paintStats();renderInspector();renderTimeline();repaintMap();}
 function activateView(view){
@@ -556,6 +498,14 @@ for(const btn of document.querySelectorAll('.nav'))btn.addEventListener('click',
 for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener('click',()=>{
   state.filter=btn.dataset.filter;syncFilterButtons();
   state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
+});
+let historyResizeFrame=null;
+window.addEventListener('resize',()=>{
+  if(historyResizeFrame!==null)cancelAnimationFrame(historyResizeFrame);
+  historyResizeFrame=requestAnimationFrame(()=>{
+    historyResizeFrame=null;
+    if(state.dataset)renderTimeline();
+  });
 });
 $('open-guide').addEventListener('click',openGuide);
 $('close-guide').addEventListener('click',closeGuide);
