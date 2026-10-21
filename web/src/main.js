@@ -410,35 +410,66 @@ function renderInspector(){
 function bindStationRows(){
   document.querySelectorAll('[data-station]').forEach(btn=>btn.onclick=()=>selectStation(btn.dataset.station));
 }
+
 function renderTimeline() {
   const history=state.dataset.history;
   $('timeline-count').textContent=display(history.length);
   const gaps=history.slice(1).map(x=>x.gap_minutes).filter(Number.isFinite);
-  $('timeline-gap').textContent=gaps.length?`${Math.max(...gaps).toLocaleString('fr-FR',{maximumFractionDigits:1})}m`:'—';
+  $('timeline-gap').textContent=gaps.length?`${Math.max(...gaps).toLocaleString('fr-FR',{maximumFractionDigits:1})} min`:'—';
   const target=$('timeline-plot');
-  if(history.length<2){
-    target.innerHTML='<div class="timeline-empty">Historique insuffisant : moins de deux captures. Aucune tendance calculable.</div>';
-    $('timeline-explain').textContent='Il faut au moins deux captures réelles pour afficher une évolution.';
+  const assessment=assessHistory(history,state.dataset.metrics.stations);
+  $('timeline-quality').textContent=assessment.unknownCount?'—':display(assessment.reducedCount);
+  $('timeline-quality').title=assessment.unknownCount?'Couverture non mesurable pour certains points':
+    `${assessment.reducedCount} relevés avec moins de 90 % de la meilleure couverture de la fenêtre`;
+  const valid=assessment.points.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0&&Number.isFinite(Date.parse(p.at)));
+  if(valid.length<2){
+    target.innerHTML='<div class="timeline-empty">Historique insuffisant : moins de deux captures utilisables. Aucune tendance calculable.</div>';
+    $('timeline-explain').textContent='Les valeurs manquantes ne sont jamais remplacées par zéro.';
     return;
   }
-  const valid=history.map(x=>x.bikes);
-  const max=Math.max(...valid),min=Math.min(...valid),span=Math.max(max-min,1);
-  const first=Date.parse(history[0].at),last=Date.parse(history.at(-1).at),duration=Math.max(last-first,1);
-  const W=680,H=94,pad=12;
-  const project=(item)=>{
-    const x=pad+(W-2*pad)*(Date.parse(item.at)-first)/duration;
-    const y=H-pad-(H-2*pad)*(item.bikes-min)/span;
-    return [x,y];
-  };
-  const lines=historySegments(history).map(segment=>{
-    if(segment.length<2)return '';
-    return `<polyline points="${segment.map(p=>project(p).map(n=>n.toFixed(2)).join(',')).join(' ')}" fill="none" stroke="#91d9b5" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round" />`;
+  // Avoid the misleading impression that historical totals plunge towards zero:
+  // the axis is explicitly anchored at zero rather than at the sample minimum.
+  const max=Math.max(...valid.map(p=>p.bikes)),ceiling=Math.max(1000,Math.ceil(max/2000)*2000);
+  const first=Date.parse(valid[0].at),last=Date.parse(valid.at(-1).at),duration=Math.max(1,last-first);
+  const W=680,H=94,left=43,right=12,top=10,bottom=65;
+  const xy=p=>[left+(W-left-right)*(Date.parse(p.at)-first)/duration,
+                bottom-(bottom-top)*p.bikes/ceiling];
+  const lines=historySegments(assessment.points).map(segment=>{
+    const pts=segment.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0);
+    return pts.length<2?'':`<polyline points="${pts.map(p=>xy(p).map(n=>n.toFixed(2)).join(',')).join(' ')}" fill="none" stroke="#91d9b5" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linecap="round"/>`;
   }).join('');
-  const dots=history.map(p=>{const [x,y]=project(p);return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2.8" fill="#bce6cf" stroke="#0a191c" stroke-width="1"><title>${html(localTime(p.at))} · ${display(p.bikes)} vélos qualifiés</title></circle>`}).join('');
-  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos qualifiés aux instants de collecte, lignes interrompues lors de lacunes"><line x1="${pad}" x2="${W-pad}" y1="${H/2}" y2="${H/2}" stroke="#355055" stroke-dasharray="2 8"/>${lines}${dots}<text x="${pad}" y="${H-2}" font-size="8" fill="#7b9697">${html(localTime(history[0].at))}</text><text x="${W-pad}" y="${H-2}" text-anchor="end" font-size="8" fill="#7b9697">${html(localTime(history.at(-1).at))}</text></svg>`;
-  const missing=gaps.filter(x=>x>20).length;
-  $('timeline-explain').textContent=missing?`${missing} interruption(s) de plus de 20 min : courbe volontairement discontinue.`:'Points réels, reliés seulement si l’écart ne dépasse pas 20 min.';
+  const dots=valid.map(p=>{
+    const [x,y]=xy(p);
+    const color=p.status==='reduced'?'#f5b17c':p.status==='unknown'?'#899fac':'#bce6cf';
+    const cover=p.catalogRatio===null?'Couverture inconnue':`${display(p.usable)} / ${display(state.dataset.metrics.stations)} stations exploitables (${pct(p.catalogRatio)})`;
+    const reason=p.status==='reduced'?' · couverture réduite, total non comparable':
+      p.status==='unknown'?' · comparabilité inconnue':' · couverture comparable';
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${p.status==='reduced'?3.8:2.6}" fill="${color}" stroke="#0a191c" stroke-width="1"><title>${html(localTime(p.at))} · ${display(p.bikes)} vélos comptabilisés · ${html(cover+reason)}</title></circle>`;
+  }).join('');
+  // Second reading on the same time axis: coverage of usable station observations.
+  const coverageDots=valid.filter(p=>p.catalogRatio!==null).map(p=>{
+    const x=xy(p)[0],y=77+7*(1-p.catalogRatio);
+    const color=p.status==='reduced'?'#f5b17c':'#73a9c9';
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations exploitables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
+  }).join('');
+  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos observés sur une échelle démarrant à zéro. Orange : couverture réduite. Trait bleu inférieur : stations exploitables.">
+    <line x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}" stroke="#4a6767"/>
+    <line x1="${left}" x2="${W-right}" y1="${top}" y2="${top}" stroke="#355055" stroke-dasharray="2 6"/>
+    <text x="${left-5}" y="${top+3}" font-size="9" text-anchor="end" fill="#b5ced0">${display(ceiling)}</text>
+    <text x="${left-5}" y="${bottom+3}" font-size="9" text-anchor="end" fill="#b5ced0">0</text>
+    ${lines}${dots}
+    <line x1="${left}" x2="${W-right}" y1="80" y2="80" stroke="#264a5a"/>${coverageDots}
+    <text x="${left}" y="${H-1}" font-size="8" fill="#9fbec1">${html(localTime(valid[0].at))}</text>
+    <text x="${W-right}" y="${H-1}" font-size="8" text-anchor="end" fill="#9fbec1">${html(localTime(valid.at(-1).at))}</text>
+  </svg>`;
+  const gapCount=gaps.filter(x=>x>20).length,notes=[];
+  if(assessment.reducedCount)notes.push(`${assessment.reducedCount} relevé(s) à couverture réduite (orange)`);
+  if(gapCount)notes.push(`${gapCount} lacune(s) de plus de 20 min`);
+  if(assessment.unknownCount)notes.push('couverture non mesurable pour certains relevés');
+  $('timeline-explain').textContent=notes.length?notes.join(' · ')+'.':
+    'Échelle à zéro · points réels · bande bleue : stations exploitables.';
 }
+
 function renderAll(){updateNav();syncFilterButtons();paintStats();renderInspector();renderTimeline();repaintMap();}
 function activateView(view){
   if(!['reseau','territoires','fiabilite','previsions'].includes(view))return;
