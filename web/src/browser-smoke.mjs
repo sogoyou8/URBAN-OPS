@@ -392,7 +392,7 @@ try{
  assert.ok(await fallbackPage.$('[data-dismiss-cluster]'));
  await fallbackPage.close();
  // Regression: a real successful archive may still have ZERO usable station measures.
- fixture.stations=stations.map(p=>({...p,usable:false,condition:'unknown',
+ fixture.stations=stations.slice(0,4).map(p=>({...p,usable:false,condition:'unknown',
    bikes:null,docks:null,mechanical:null,electric:null}));
  fixture.metrics={stations:4,observed:4,usable:0,unusable:4,bikes:null,docks:null,
    empty:null,capture_count:5};
