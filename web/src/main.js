@@ -105,22 +105,53 @@ function fallbackMap(points) {
   if(state.markerCanvas)state.markerCanvas.hidden=true;
   const surface=$('map-fallback');surface.hidden=false;
   const full=bounds(state.stations),pad=.05;
-  const west=full.west-(full.east-full.west)*pad,east=full.east+(full.west===full.east?0.01:full.east-full.west)*pad;
-  const south=full.south-(full.north-full.south)*pad,north=full.north+(full.south===full.north?0.01:full.north-full.south)*pad;
+  const west=full.west-(full.east-full.west)*pad;
+  const east=full.east+(full.west===full.east?0.01:full.east-full.west)*pad;
+  const south=full.south-(full.north-full.south)*pad;
+  const north=full.north+(full.south===full.north?0.01:full.north-full.south)*pad;
+  const w=Math.max(1,surface.clientWidth),h=Math.max(1,surface.clientHeight);
+  // The fallback has no vector tiles or zoom control. It must still cluster
+  // the actual geographic positions; 1500 overlapping 7px DOM buttons are not
+  // a readable or keyboard-friendly substitute for a basemap.
+  const project=([lon,lat])=>({
+    x:w*(lon-west)/(east-west),
+    y:h*(north-lat)/(north-south),
+  });
+  const markers=layoutMapMarkers(points,project,w,h,11,state.selected);
   surface.replaceChildren();
-  const label=document.createElement('span');label.className='fallback-caption';
-  label.textContent='COORDONNÉES VÉRIFIÉES · MODE DE SECOURS SANS TUILES';surface.append(label);
+  const label=document.createElement('span');
+  label.className='fallback-caption';
+  label.textContent='PLAN SCHÉMATIQUE · MODE SANS TUILES';
+  surface.append(label);
+  const byId=new Map(points.map(p=>[p.id,p]));
   const frag=document.createDocumentFragment();
-  for(const station of points){
-    const point=document.createElement('button');point.type='button';
-    point.className='fallback-point '+(station.condition==='available'?'':station.condition);
-    point.style.left=(100*(station.lon-west)/(east-west)).toFixed(3)+'%';
-    point.style.top=(100*(north-station.lat)/(north-south)).toFixed(3)+'%';
-    point.title=station.name;point.setAttribute('aria-label','Inspecter '+station.name);
-    point.addEventListener('click',()=>selectStation(station.id));frag.append(point);
+  for(const mark of markers){
+    const clustered=mark.count>1;
+    const station=clustered?null:byId.get(mark.ids[0]);
+    const point=document.createElement('button');
+    point.type='button';
+    point.className='fallback-point '+mark.condition+(clustered?' cluster':'');
+    point.style.left=(100*mark.x/w).toFixed(3)+'%';
+    point.style.top=(100*mark.y/h).toFixed(3)+'%';
+    point.title=clustered?`${mark.count} stations proches`:station?.name||'Station';
+    point.setAttribute('aria-label',clustered
+      ?`Explorer le regroupement de ${mark.count} stations proches`
+      :`Inspecter ${station?.name||'la station'}`);
+    if(clustered){
+      point.textContent=String(mark.count);
+      point.addEventListener('click',()=>{
+        state.view='reseau';state.selected=null;state.clusterIds=mark.ids;
+        history.replaceState(null,'','#reseau');
+        updateNav();paintStats();renderInspector();resetInspectorScroll();
+        $('inspector-content').querySelector('[data-dismiss-cluster]')?.focus({preventScroll:true});
+      });
+    }else{
+      point.addEventListener('click',()=>selectStation(mark.ids[0]));
+    }
+    frag.append(point);
   }
   surface.append(frag);
-  setViewportCount(points.length,points.map(p=>({count:1})),true);
+  setViewportCount(points.length,markers,true);
 }
 function mapFallback() {
   if(state.mapFailed)return;
@@ -450,6 +481,9 @@ for(const btn of document.querySelectorAll('.filter-pill'))btn.addEventListener(
   state.selected=null;state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap();
 });
 $('reload').addEventListener('click',refresh);
+window.addEventListener('resize',()=>{
+  if(state.mapFailed&&state.dataset)fallbackMap(filtered());
+});
 $('retry-data').addEventListener('click',refresh);
 // Re-evaluate the displayed age; never fetch new Vélib data behind the user's back.
 setInterval(updateFreshness,60_000);
