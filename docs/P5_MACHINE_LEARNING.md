@@ -15,7 +15,7 @@ La cible est `num_bikes_available` de la **véritable capture future qualifiée*
 
 ## Politique : pas d'entraînement trompeur
 
-Le train est bloqué tant que l'historique n'a pas : **7 jours révolus**, **900 captures distinctes** et **40 % de couverture indicative** sur la période observée. Ce sont des seuils de prudence, pas une garantie statistique. Après extraction : au moins 5 000 paires en entraînement et 1 000 paires pour chacun des deux blocs d'évaluation. L'entraînement ne peut être conclu « validé » à partir de 2, 3 ou 4 captures.
+Le train est bloqué tant que l'historique n'a pas : **7 jours révolus**, **900 captures distinctes** et **40 % de couverture indicative calculée sur les créneaux UTC distincts de cinq minutes** sur la période observée. Plusieurs archives ayant des horodatages différents dans un même créneau comptent pour une seule preuve de couverture. Ce sont des seuils de prudence, pas une garantie statistique. Après extraction : au moins 5 000 paires en entraînement et 1 000 paires pour chacun des deux blocs d'évaluation. L'entraînement ne peut être conclu « validé » à partir de 2, 3 ou 4 captures.
 
 La découpe est *chronologique*, UTC (premiers 60 % pour entraînement, 20 % validation, 20 % test), avec **purge des cibles qui dépassent la frontière de chaque ensemble**. Le test final ne sert ni à sélectionner des paramètres, ni à entraîner.
 
@@ -49,3 +49,13 @@ python -m scripts.train_p5 --db-url sqlite:///./data/p5-history.sqlite --output 
 3. Si le modèle ne bat pas la baseline, **garder la baseline** et diagnostiquer les variables/la dérive, sans annoncer de performance prédictive.
 4. Contrôler la dérive, la fraîcheur des captures, la stabilité géographique et la réactualisation du modèle avant branchement dans le cockpit P6.
 5. Sur le CV, n'annoncer qu'une architecture de prévision et une évaluation chronologique **jusqu'à l'existence d'un backtest réel probant**.
+## Préparation de P5 pendant les sept jours de collecte (octobre 2026)
+
+Le **pré-contrôle** de `scripts/p5_inventory.py` inspecte uniquement les noms et horodatages des assets GitHub Releases. Le rapport `data/p5-inventory.json` expose les dates de la première et de la dernière archive, le nombre d'archives, les créneaux de cinq minutes **distincts**, les captures multiples dans un même créneau, les heures manquant encore pour sept jours révolus et les captures restant à obtenir pour atteindre 900. Il ajoute également un résumé dans l'exécution GitHub Actions.
+
+**Deux niveaux doivent rester distincts** :
+
+1. `ready_for_training` ne signifie que « suffisamment d'archives pour tenter une vérification réelle ». À ce stade, les données n'ont pas encore été réimportées et revalidées.
+2. Ensuite, la procédure existante télécharge les archives, vérifie les hashes SHA-256, les remonte dans le pipeline P3, exige `is_usable=1`, construit les vraies paires à +30 minutes, applique la séparation temporelle anti-fuite, puis compare le modèle à la persistance. Seul un résultat `validated_model` obtenu sur les deux jeux d'évaluation permet de publier un modèle.
+
+Le chantier de préparation n'abaisse **aucun seuil** et ne lance ni entraînement artificiel, ni collecte externe Pulse. Les trous de P3 demeurent des trous ; des requêtes successives identiques ne sont jamais utilisées pour gonfler la couverture.
