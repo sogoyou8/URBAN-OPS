@@ -1,5 +1,5 @@
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
-         historySegments, relativeAge, captureFreshness, html, display, pct, localTime,
+         historySegments, assessHistory, relativeAge, captureFreshness, html, display, pct, localTime,
          layoutMapMarkers, pickMapMarker, viewportCounts, issueLabel, p5Gate, qualityReasons } from './core.js';
 
 const $ = id => document.getElementById(id);
@@ -274,16 +274,17 @@ function updateNav() {
     nav.setAttribute('aria-pressed',String(active));
   }
   const views={
-    reseau:['01 / 04','Le pouls du réseau.','État observé du réseau à la dernière capture archivée','Disponibilité par station'],
-    territoires:['02 / 04','Lire le territoire.','Quatre secteurs analytiques, non administratifs','Répartition géographique'],
-    fiabilite:['03 / 04','La preuve par la donnée.','Mesures admissibles, anomalies et traçabilité','Stations et qualité des mesures'],
-    previsions:['04 / 04','Prédire, sans inventer.','Modèle +30 minutes en attente de validation','Prévisions / en attente'],
+    reseau:['01 / 04','Le pouls du réseau.','Explorez les stations Vélib’, leur disponibilité observée et les bornes libres.','Disponibilité par station'],
+    territoires:['02 / 04','Lire le territoire.','Comparez les stations Vélib’ de quatre quadrants d’analyse, non administratifs.','Répartition géographique'],
+    fiabilite:['03 / 04','La preuve par la donnée.','Découvrez pourquoi certaines mesures Vélib’ sont rejetées et d’autres exploitables.','Stations et qualité des mesures'],
+    previsions:['04 / 04','Prédire, sans inventer.','Suivez les conditions de validation du futur modèle Vélib’ à +30 minutes.','Prévisions / en attente'],
   };
   const [index,title,description,maptitle]=views[state.view];
   document.querySelector('.index').textContent=index;
   $('headline-title').innerHTML=html(title.slice(0,-1))+'<span class="period">.</span>';
   $('headline-description').textContent=description;
   $('map-title').textContent=maptitle;
+  updateGuideContext();
   document.querySelector('.workspace').dataset.view=state.view;
   $('panel-state').textContent=state.view==='previsions'?'NON VALIDÉ':state.view==='fiabilite'?'CONTRÔLE':state.view==='territoires'?'ANALYSE SPATIALE':'EXPLORATION';
   $('timeline-heading').textContent=state.view==='fiabilite'?'Régularité de la collecte':
