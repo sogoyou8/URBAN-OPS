@@ -112,8 +112,13 @@ try{
  assert.match(await page.$eval('.scope-note',el=>el.textContent),/pas de temps réel/);
  assert.equal(await page.$eval('#timeline-heading',e=>e.textContent),'Historique des vélos');
  assert.match(await page.$eval('.timeline-meta',e=>e.textContent),/CAPTURES INCOMPLÈTES/);
- assert.equal(await page.$$eval('.timeline-dates span',els=>els.length),2);
- assert.ok(await page.$eval('.timeline-dates',e=>e.textContent.includes('2026')));
+ assert.match(await page.$eval('.history-date-range',e=>e.textContent),/20 octobre/);
+ assert.match(await page.$eval('.timeline-svg',e=>e.textContent),/Vélos comptés/);
+ assert.match(await page.$eval('.timeline-svg',e=>e.textContent),/Stations mesurées/);
+ assert.equal(await page.$eval('.history-station-bar',els=>els.length),4);
+ assert.equal(await page.$eval('.history-bike-dot',els=>els.length),4);
+ assert.equal(await page.$eval('.history-window',e=>e.textContent),'15 min');
+ assert.equal(await page.$eval('#timeline-gap',e=>e.textContent),'5 min');
  assert.match(await page.$eval('#timeline-explain',e=>e.textContent),/1 capture incomplète \(orange\)/);
  assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
  assert.equal(await page.$eval('#timeline-quality',el=>el.textContent),'1',
@@ -121,6 +126,23 @@ try{
  assert.equal(await page.$$eval('.timeline-svg polyline',els=>els.length),1,
    'Only the last two comparable captures may form a connected line');
  assert.match(await page.$eval('.timeline-svg',el=>el.getAttribute('aria-label')),/zéro/);
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/17.*vélos comptés/s);
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/3 \/ 4 stations mesurées/);
+ const originalX=await page.$eval('#history-crosshair',e=>e.getAttribute('x1'));
+ await page.$eval('#history-capture-slider',input=>{
+   input.value='1';input.dispatchEvent(new Event('input',{bubbles:true}));
+ });
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/4.*vélos comptés/s);
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/1 \/ 4 stations mesurées/);
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/Capture incomplète/);
+ assert.notEqual(await page.$eval('#history-crosshair',e=>e.getAttribute('x1')),originalX);
+ assert.equal(await page.$eval('.history-bike-dot',els=>els.length),4);
+ await page.click('.history-bike-dot');
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/15.*vélos comptés/s);
+ await page.focus('#history-capture-slider');
+ await page.keyboard.press('ArrowRight');
+ assert.match(await page.$eval('#history-inspection',e=>e.textContent),/4.*vélos comptés/s);
+
  await page.click('#open-guide');
  assert.equal(await page.$eval('#understand-dialog',el=>el.hidden),false);
  assert.equal(await page.$eval('#open-guide',el=>el.getAttribute('aria-expanded')),'true');
@@ -235,6 +257,14 @@ try{
    const meta=document.querySelector('.timeline-meta').getBoundingClientRect();
    return {plotWidth:plot.width,containerWidth:line.width,plotBottom:plot.bottom,metaTop:meta.top};
  });
+ const historyMobile=await page.evaluate(()=>{
+   const svg=document.querySelector('.timeline-svg').getBoundingClientRect();
+   const rail=document.querySelector('.history-capture-control').getBoundingClientRect();
+   const body=document.querySelector('.timeline-plot').getBoundingClientRect();
+   return {svgWidth:svg.width,bodyWidth:body.width,sliderWidth:rail.width};
+ });
+ assert.ok(historyMobile.svgWidth/historyMobile.bodyWidth>.95,'Both charts should fill the mobile history width');
+ assert.ok(historyMobile.sliderWidth>80,'Capture inspection should remain touch-accessible');
  assert.ok(timelineMobile.plotWidth/timelineMobile.containerWidth>0.94,
    'Mobile history chart must occupy the full available width');
  assert.ok(timelineMobile.metaTop>=timelineMobile.plotBottom,
