@@ -64,8 +64,20 @@ try{
   assert.match(await page.$eval('.timeline-meta',e=>e.textContent),/CAPTURES INCOMPLÈTES/);
   assert.match(await page.$eval('.guide-method',e=>e.textContent),/points sont orange/i);
   assert.doesNotMatch(await page.$eval('#timeline-explain',e=>e.textContent),/couverture réduite/i);
-  assert.ok(await page.$('.timeline-svg'),'A real archive must render the coverage-aware history');
-  assert.match(await page.$eval('.timeline-svg',e=>e.getAttribute('aria-label')),/zéro/);
+  assert.ok(await page.$('.timeline-svg'),'Real verified history should be graphed');
+  assert.ok((await page.$('.history-station-bar')).length>=2,
+    'Real archive includes actual usable-station bars');
+  assert.ok((await page.$('.history-bike-dot')).length>=2,
+    'Real archive includes actual bike observations');
+  assert.match(await page.$eval('.history-date-range',e=>e.textContent),/octobre|septembre|novembre|décembre|janvier|février|mars|avril|mai|juin|juillet|août/i);
+  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/vélos comptés/);
+  await page.$eval('#history-capture-slider',e=>{e.value='0';e.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.equal(await page.$eval('#history-capture-slider',e=>e.value),'0');
+  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/stations mesurées/);
+  // Return to the latest real observation before taking the desktop evidence.
+  await page.$eval('#history-capture-slider',e=>{e.value=e.max;e.dispatchEvent(new Event('input',{bubbles:true}));});
+  assert.match(await page.$eval('.timeline-svg',e=>e.getAttribute('aria-label')),/échelle détaillée/i);
+  assert.match(await page.$eval('.timeline-svg',e=>e.getAttribute('aria-label')),/zéro/i);
   await page.click('#open-guide');
   assert.equal(await page.$eval('#understand-dialog',e=>e.hidden),false);
   assert.match(await page.$eval('.guide-method',e=>e.textContent),/10 %/);
