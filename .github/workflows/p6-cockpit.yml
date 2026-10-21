@@ -4,6 +4,7 @@ on:
     paths:
       - 'web/**'
       - 'scripts/export_p6.py'
+      - 'scripts/diagnose_p3_capture.py'
       - 'scripts/p5_inventory.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'web/**'
       - 'scripts/export_p6.py'
+      - 'scripts/diagnose_p3_capture.py'
       - 'scripts/p5_inventory.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
