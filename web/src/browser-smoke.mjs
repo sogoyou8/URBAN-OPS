@@ -401,7 +401,16 @@ try{
  fixture.history.push({at:'2026-10-20T01:20:00Z',usable:0,observed:4,
    bikes:null,docks:null,empty:null,gap_minutes:5,connected_to_previous:true});
  await page.reload({waitUntil:'load'});
- await page.waitForFunction(()=>document.getElementById('freshness-label')?.textContent==='CAPTURE INEXPLOITABLE');
+ await new Promise(resolve=>setTimeout(resolve,500));
+ console.log('P6 zero-usable fixture reload:',JSON.stringify(await page.evaluate(()=>({
+   label:document.getElementById('freshness-label')?.textContent,
+   visibleError:!document.getElementById('error-state')?.hidden,
+   error:document.getElementById('error-message')?.textContent,
+   usable:document.querySelector('.metric:last-child .metric-figure')?.textContent,
+   history:document.querySelector('#history-inspection')?.textContent
+ }))));
+ await page.waitForFunction(()=>document.getElementById('freshness-label')?.textContent==='CAPTURE INEXPLOITABLE',
+    {timeout:8000});
  assert.equal(await page.$eval('#stat-bikes',e=>e.textContent),'—');
  assert.equal(await page.$eval('#stat-empty',e=>e.textContent),'—');
  assert.equal(await page.$eval('.metric:last-child .metric-figure',e=>e.textContent),'0');
