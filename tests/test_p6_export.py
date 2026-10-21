@@ -132,4 +132,8 @@ def test_sql_forensic_anomaly_neighbors_do_not_invent_cause(tmp_path):
     assert problem['previous_run']['usable']==1
     assert problem['following_run'] is None
     assert problem['diagnostic_factors_not_mutually_exclusive']['recorded']==2
+    assert problem['diagnostic_factors_not_mutually_exclusive']['missing_total_bikes']==0
+    assert problem['diagnostic_factors_not_mutually_exclusive']['missing_total_docks']==0
+    assert problem['diagnostic_factors_not_mutually_exclusive']['missing_mechanical_bikes']==0
+    assert problem['diagnostic_factors_not_mutually_exclusive']['missing_electric_bikes']==0
     assert problem['issue_counts_not_distinct_station_counts'][0]['code']=='stale_station_report'
