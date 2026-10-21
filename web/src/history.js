@@ -170,8 +170,14 @@ export function renderHistory(dataset){
   slider.setAttribute('aria-label','Explorer les captures');
   slider.setAttribute('aria-describedby','history-inspection');
   control.append(slider);foot.append(control);target.append(foot);
-  if(mainScale.offScaleCount)target.append(node('span','history-scale-note',
-    display(mainScale.offScaleCount)+' capture(s) hors échelle : valeur exacte dans le détail.'));
+  if(mainScale.offScaleCount){
+    const n=mainScale.offScaleCount;
+    const note=node('span','history-scale-note',
+      display(n)+' '+(n===1?'capture hors échelle':'captures hors échelle')+
+      ' · sélectionnez le point orange pour voir le chiffre exact.');
+    note.title='L’échelle détaillée reste centrée sur les captures comparables. Les chiffres des captures incomplètes ne sont jamais effacés ou modifiés.';
+    target.append(note);
+  }
   svg.addEventListener('click',event=>{
     const item=event.target.closest('[data-history-index]');
     if(item)inspect(Number(item.dataset.historyIndex));
