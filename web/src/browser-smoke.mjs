@@ -176,7 +176,8 @@ try{
  setDatasetAvailable(true);
  await page.click('#retry-data');
  await page.waitForFunction(()=>document.getElementById('error-state').hidden);
- assert.equal(await page.$eval('#map-count',e=>e.dataset.filtered),'4');
+ assert.equal(await page.$eval('#map-count',e=>e.dataset.filtered),'1',
+   'Successful retry preserves the station search context');
  // Representative laptop and mobile breakpoints.
  await page.setViewport({width:1024,height:768,deviceScaleFactor:1});
  await page.evaluate(()=>window.dispatchEvent(new Event('resize')));
