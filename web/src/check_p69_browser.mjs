@@ -56,7 +56,26 @@ try{
   assert.ok(initial.visible<=initial.filtered && initial.markers<=initial.visible,'Viewport labels must be coherent');
   const auditDir=resolve('data/p6-c1c2-qa');
   await mkdir(auditDir,{recursive:true});
+  assert.equal(await page.$eval('#history-size-toggle',e=>e.getAttribute('aria-pressed')),'false');
+  const compact=await page.evaluate(()=>({
+    map:document.querySelector('.operational').clientHeight,
+    history:document.querySelector('#history-section').clientHeight
+  }));
   await page.screenshot({path:join(auditDir,'desktop-real-1440x900.png'),fullPage:true});
+  await page.click('#history-size-toggle');
+  await page.waitForFunction(()=>document.querySelector('#history-section').classList.contains('history-expanded'));
+  await new Promise(r=>setTimeout(r,60));
+  const expanded=await page.evaluate(()=>({
+    map:document.querySelector('.operational').clientHeight,
+    history:document.querySelector('#history-section').clientHeight,
+    scroll:document.documentElement.scrollHeight
+  }));
+  assert.ok(expanded.history>compact.history+25,'Expanded history must get more space');
+  assert.ok(expanded.map<compact.map-25,'Map-first compact layout needs more map space');
+  assert.ok(expanded.scroll<=900+3,'Expanding history must not add global desktop scroll');
+  await page.screenshot({path:join(auditDir,'history-expanded-real-1440x900.png'),fullPage:true});
+  await page.click('#history-size-toggle');
+  await page.waitForFunction(()=>document.querySelector('#history-section').classList.contains('history-compact'));
   assert.match(await page.$eval('.eyebrow',e=>e.textContent),/VÉLIB’ MÉTROPOLE/);
   assert.match(await page.$eval('#headline-description',e=>e.textContent),/stations Vélib’/);
   assert.match(await page.$eval('.scope-note',e=>e.textContent),/pas de temps réel/);
