@@ -136,7 +136,7 @@ try{
  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/1 \/ 4 stations mesurées/);
  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/Capture incomplète/);
  assert.notEqual(await page.$eval('#history-crosshair',e=>e.getAttribute('x1')),originalX);
- assert.equal(await page.$eval('.history-bike-dot',els=>els.length),4);
+ assert.equal(await page.$$eval('.history-bike-dot',els=>els.length),4);
  await page.click('.history-bike-dot');
  assert.match(await page.$eval('#history-inspection',e=>e.textContent),/15.*vélos comptés/s);
  await page.focus('#history-capture-slider');
