@@ -223,6 +223,16 @@ try{
    };
  });
  assert.ok(mobile.w<=mobile.vw+3,'Mobile must not scroll horizontally');
+ const timelineMobile=await page.evaluate(()=>{
+   const plot=document.querySelector('.timeline-plot').getBoundingClientRect();
+   const line=document.querySelector('.bottomline').getBoundingClientRect();
+   const meta=document.querySelector('.timeline-meta').getBoundingClientRect();
+   return {plotWidth:plot.width,containerWidth:line.width,plotBottom:plot.bottom,metaTop:meta.top};
+ });
+ assert.ok(timelineMobile.plotWidth/timelineMobile.containerWidth>0.94,
+   'Mobile history chart must occupy the full available width');
+ assert.ok(timelineMobile.metaTop>=timelineMobile.plotBottom,
+   'History indicators must appear below the mobile graph');
  assert.ok(mobile.navScrollable,'All four views must remain reachable on mobile');
  assert.ok(mobile.headingBottom+6<=mobile.filterTop,'Map title must remain above filters on mobile');
  assert.ok(mobile.countBottom+6<=mobile.filterTop,'Map counters must remain above filters on mobile');
