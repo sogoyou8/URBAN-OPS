@@ -151,6 +151,14 @@ jobs:
         env:
           P6_CHROME: ${{ steps.p69_chrome.outputs.chrome-path }}
         run: node web/src/check_p69_browser.mjs dist/p6-public
+      - name: Preserve C1+C2 real-data visual QA captures (not a deployment)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p6-c1c2-visual-qa
+          path: data/p6-c1c2-qa/*.png
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Upload audited P6.9 publication-ready artifact ONLY (no hosting)
         uses: actions/upload-artifact@v4
         with:
