@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,viewportCounts,issueLabel,p5Gate,qualityReasons} from './core.js';
+import {validateDataset,selectStations,sectors,sectorSummaries,summary,historySegments,assessHistory,html,captureFreshness,relativeAge,bounds,layoutMapMarkers,pickMapMarker,viewportCounts,issueLabel,p5Gate,qualityReasons} from './core.js';
 const stations=[
  {id:'1',name:'A & <B>',code:'001',lat:48.8,lon:2.2,usable:true,condition:'available',bikes:5,docks:5},
  {id:'2',name:'Deux',code:'002',lat:48.9,lon:2.4,usable:true,condition:'empty',bikes:0,docks:10},
@@ -105,4 +105,38 @@ test('mobile map clusters more aggressively than desktop without losing station 
  assert.equal(mobile[0].count,2);
  assert.deepEqual(mobile[0].ids,['a','b']);
  assert.equal(viewportCounts(dense.length,mobile).visible,2);
+});
+
+test('C2.3: low station coverage creates an honest break, not a false drop in bikes',()=>{
+ const values=[
+  {at:'2026-10-20T08:00:00Z',bikes:19448,usable:1482,observed:1500,connected_to_previous:false},
+  {at:'2026-10-20T08:05:00Z',bikes:16290,usable:1065,observed:1500,connected_to_previous:true},
+  {at:'2026-10-20T08:10:00Z',bikes:19420,usable:1480,observed:1500,connected_to_previous:true},
+  {at:'2026-10-20T08:15:00Z',bikes:19410,usable:1470,observed:1500,connected_to_previous:true},
+ ];
+ const a=assessHistory(values,1515);
+ assert.equal(a.reducedCount,1);
+ assert.equal(a.unknownCount,0);
+ assert.equal(a.baselineUsable,1482);
+ assert.deepEqual(a.points.map(p=>p.status),['comparable','reduced','comparable','comparable']);
+ assert.deepEqual(a.points.map(p=>p.connected_to_previous),[false,false,false,true]);
+ assert.equal(a.points[1].bikes,16290,'Never erase a real historical value');
+ assert.equal(a.points[1].usable,1065,'Never invent missing station counts');
+ assert.equal(historySegments(a.points).map(x=>x.length).join(','),'1,1,2');
+ assert.equal(a.points[1].catalogRatio,1065/1515);
+});
+test('C2.3: absent quality evidence stays unknown, never becomes a valid comparison',()=>{
+ const raw=[{at:'2026-10-20T01:00:00Z',bikes:10,connected_to_previous:false},
+            {at:'2026-10-20T01:05:00Z',bikes:20,connected_to_previous:true}];
+ const a=assessHistory(raw,1515);
+ assert.equal(a.baselineUsable,null);
+ assert.equal(a.unknownCount,2);
+ assert.deepEqual(a.points.map(p=>p.connected_to_previous),[false,false]);
+ assert.equal(a.points[1].catalogRatio,null);
+ assert.throws(()=>assessHistory(raw,1515,0),/Seuil/);
+});
+test('C2.3: an actual gap remains a gap even with stable coverage',()=>{
+ const vals=[{bikes:30,usable:1490,connected_to_previous:false},
+             {bikes:31,usable:1490,connected_to_previous:false}];
+ assert.deepEqual(assessHistory(vals,1515).points.map(p=>p.connected_to_previous),[false,false]);
 });
