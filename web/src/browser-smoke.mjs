@@ -236,7 +236,10 @@ try{
    Number(document.querySelector('#map-count')?.dataset.filtered)===count,
    {timeout:10000},fixture.stations.length);
  const fallbackCount=await fallbackPage.$('.fallback-point');
- assert.ok(fallbackCount.length<fixture.stations.length/2,'Fallback should cluster dense stations');
+ const fallbackDiagnostic=await fallbackPage.$eval('#map-count',e=>({filtered:e.dataset.filtered,markers:e.dataset.markers}));
+ console.log('P6 fallback dense QA:',JSON.stringify({count:fallbackCount.length,fixtureStations:fixture.stations.length,stat:fallbackDiagnostic}));
+ assert.ok(fallbackCount.length<fixture.stations.length/2,
+   `Fallback should cluster dense stations: ${fallbackCount.length} markers for ${fixture.stations.length} stations`);
  assert.ok(await fallbackPage.$('.fallback-point.cluster'),'Fallback groups must be accessible');
  await fallbackPage.click('.fallback-point.cluster');
  assert.match(await fallbackPage.$eval('#inspector-content',e=>e.textContent),/stations à cet emplacement/);
