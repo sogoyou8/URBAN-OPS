@@ -187,12 +187,22 @@ try{
  assert.ok(laptop.w<=laptop.vw+3,'Laptop must not scroll horizontally');
  await page.setViewport({width:390,height:844,deviceScaleFactor:1});
  await new Promise(done=>setTimeout(done,80));
- const mobile=await page.evaluate(()=>({
+ const mobile=await page.evaluate(()=>{
+   const rect=id=>document.querySelector(id).getBoundingClientRect();
+   return {
     w:document.documentElement.scrollWidth,vw:innerWidth,
-    navScrollable:document.querySelector('.topnav').scrollWidth >= document.querySelector('.topnav').clientWidth
- }));
+    navScrollable:document.querySelector('.topnav').scrollWidth >= document.querySelector('.topnav').clientWidth,
+    headingBottom:rect('.map-header h2').bottom,
+    countBottom:rect('#map-count').bottom,
+    filterTop:rect('.map-control').top,
+    kpiFootStyle:getComputedStyle(document.querySelector('.metric-foot')).whiteSpace
+   };
+ });
  assert.ok(mobile.w<=mobile.vw+3,'Mobile must not scroll horizontally');
  assert.ok(mobile.navScrollable,'All four views must remain reachable on mobile');
+ assert.ok(mobile.headingBottom+6<=mobile.filterTop,'Map title must remain above filters on mobile');
+ assert.ok(mobile.countBottom+6<=mobile.filterTop,'Map counters must remain above filters on mobile');
+ assert.equal(mobile.kpiFootStyle,'normal','Mobile KPI descriptions must be readable, not ellipsized');
  await page.setViewport({width:320,height:700,deviceScaleFactor:1});
  await new Promise(done=>setTimeout(done,90));
  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3),
