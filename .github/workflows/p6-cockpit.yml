@@ -6,6 +6,11 @@ on:
       - 'scripts/export_p6.py'
       - 'scripts/diagnose_p3_capture.py'
       - 'scripts/p5_inventory.py'
+      - 'scripts/p5_exploratory.py'
+      - 'tests/test_p5_exploratory.py'
+      - 'docs/C3_PUBLICATION_CHECKLIST.md'
+      - 'scripts/c3_preflight.py'
+      - 'tests/test_c3_preflight.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
       - 'scripts/package_p6_public.py'
@@ -20,6 +25,11 @@ on:
       - 'scripts/export_p6.py'
       - 'scripts/diagnose_p3_capture.py'
       - 'scripts/p5_inventory.py'
+      - 'scripts/p5_exploratory.py'
+      - 'tests/test_p5_exploratory.py'
+      - 'docs/C3_PUBLICATION_CHECKLIST.md'
+      - 'scripts/c3_preflight.py'
+      - 'tests/test_c3_preflight.py'
       - 'tests/test_p6_export.py'
       - 'scripts/sync-p6.ps1'
       - 'scripts/package_p6_public.py'
@@ -46,7 +56,7 @@ jobs:
         run: python -m pip install -e '.[test]'
       - name: Validate Python SQL export and JavaScript selectors
         run: |
-          python -m pytest -q tests/test_p6_export.py tests/test_p69_publication.py
+          python -m pytest -q tests/test_p6_export.py tests/test_p69_publication.py tests/test_p5_exploratory.py tests/test_c3_preflight.py
           node --check web/src/main.js
           node --test web/src/core.test.mjs
       - name: Reject fixture-like data shipped as real
@@ -114,6 +124,30 @@ jobs:
           set -euo pipefail
           mapfile -t captures < /tmp/p6-selected.txt
           python -m scripts.replay_capture --db-url sqlite:///./data/p6-real.sqlite "${captures[@]}" > data/p6-replay.json
+      - name: Install P5 exploratory candidate dependencies (not a production model)
+        run: python -m pip install -e '.[ml]'
+      - name: Trial P5 on existing verified archives without promoting or exporting forecasts
+        run: |
+          python -m scripts.p5_exploratory --db-url sqlite:///./data/p6-real.sqlite --replay-evidence data/p6-replay.json --output data/p5-exploratory
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('data/p5-exploratory/P5_EXPLORATORY_ONLY.json').read_text())
+          assert s['production_status']=='NOT_VALIDATED'
+          assert s['safe_to_publish_forecasts'] is False
+          assert s['prediction_rows']==0 and s['model_exported'] is False
+          print('P5 EXPLORATORY, NEVER a production forecast:',s['status'])
+          print('Real qualified +30m sample counts:',s.get('real_label_pairs'))
+          print('Baseline on held-out slice (NOT 7-day validation):',s.get('baseline_only'))
+          if 'provisional_candidate' in s:
+              print('Candidate trial only:',s['provisional_candidate'])
+          PY
+      - name: Preserve real P5 provisional evidence, never model or forecasts
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p5-exploratory-only
+          path: data/p5-exploratory/P5_EXPLORATORY_ONLY.json
+          retention-days: 14
       - name: Diagnose any zero-usable archived P3 collections (forensic, no guesses)
         run: |
           python -m scripts.diagnose_p3_capture --db-url sqlite:///./data/p6-real.sqlite --output data/p6-quality-diagnostic.json
@@ -162,6 +196,24 @@ jobs:
         env:
           P6_CHROME: ${{ steps.p69_chrome.outputs.chrome-path }}
         run: node web/src/check_p69_browser.mjs dist/p6-public
+      - name: C3 technical preflight on verified bundle (never host)
+        run: |
+          python -m scripts.c3_preflight --bundle dist/p6-public --output data/c3-preflight.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          a=json.loads(Path('data/c3-preflight.json').read_text())
+          assert a['deployment_performed'] is False
+          assert a['requires_explicit_manual_approval'] is True
+          assert a['technical_checks']['p5_predictions_disabled'] is True
+          print('C3 preflight:',a['status'])
+          PY
+      - name: Save C3 readiness checklist, no publishing
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-c3-preflight-not-deployed
+          path: data/c3-preflight.json
+          retention-days: 14
       - name: Preserve C1+C2 real-data visual QA captures (not a deployment)
         if: always()
         uses: actions/upload-artifact@v4
