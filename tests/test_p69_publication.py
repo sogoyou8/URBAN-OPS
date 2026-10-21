@@ -18,7 +18,7 @@ def fixture(tmp_path):
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.css"/>
 <script defer src="https://cdn.jsdelivr.net/npm/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
 </head><body>Fixture only, not publishable</body></html>''', encoding='utf8')
-    for path in ('src/main.js', 'src/core.js', 'src/style.css'):
+    for path in ('src/main.js', 'src/core.js', 'src/history.js', 'src/style.css'):
         (src / path).write_text('body{}' if path.endswith('.css') else 'export const test=true;', encoding='utf8')
     captured = datetime.now(timezone.utc) - timedelta(minutes=15)
     d = {
@@ -47,6 +47,10 @@ def test_p69_bundle_has_verified_digests_and_no_remote_scripts(tmp_path):
     assert m['status']=='publication_ready_not_deployed'
     assert verify(out)['validated']
     assert (out/'data/network.json').exists()
+    assert (out/'src/history.js').is_file()
+    assert 'src/history.js' in m['files_sha256']
+    assert (out/'src/history.js').read_text() == 'export const test=true;'
+
     index = (out/'index.html').read_text()
     assert 'script-src \'self\'' in index
     assert 'src="./vendor/maplibre-gl.js"' in index
@@ -93,3 +97,9 @@ def test_p69_refuses_extra_files_in_public_package(tmp_path):
     (out/'.env').write_text('forbidden=true')
     with pytest.raises(ValueError,match='release files'):
         verify(out)
+
+def test_p69_requires_history_module_before_packaging(tmp_path):
+    src, replay, vendor, _ = fixture(tmp_path)
+    (src / 'src/history.js').unlink()
+    with pytest.raises(ValueError, match='Missing app source'):
+        prepare(src, tmp_path/'dist', vendor, replay)
