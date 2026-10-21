@@ -29,7 +29,7 @@ CSP = (
     "worker-src 'self' blob:; child-src blob:"
 )
 PUBLIC_FILES = (
-    "index.html", "src/main.js", "src/core.js", "src/style.css",
+    "index.html", "src/main.js", "src/core.js", "src/history.js", "src/style.css",
     "data/network.json", "vendor/maplibre-gl.js", "vendor/maplibre-gl.css"
 )
 
@@ -117,7 +117,7 @@ def prepare(source: Path, out: Path, vendor: Path, evidence: Path, *,
     data = json.loads(raw)
     replay = json.loads(evidence.read_text(encoding="utf-8"))
     checked_input(data, replay, now, max_age_hours)
-    if any(not (source / p).is_file() for p in ("index.html", "src/main.js", "src/core.js", "src/style.css")):
+    if any(not (source / p).is_file() for p in ("index.html", "src/main.js", "src/core.js", "src/history.js", "src/style.css")):
         raise ValueError("Missing app source")
     if any(not (vendor / p).is_file() or (vendor / p).stat().st_size < 100 for p in (VENDOR_JS, VENDOR_CSS)):
         raise ValueError("Missing local vendored MapLibre bundle")
@@ -126,7 +126,7 @@ def prepare(source: Path, out: Path, vendor: Path, evidence: Path, *,
     if out.exists():
         shutil.rmtree(out)
     out.mkdir(parents=True)
-    for rel in ("src/main.js", "src/core.js", "src/style.css", "data/network.json"):
+    for rel in ("src/main.js", "src/core.js", "src/history.js", "src/style.css", "data/network.json"):
         path = out / rel
         path.parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(source / rel, path)
