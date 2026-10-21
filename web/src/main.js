@@ -346,17 +346,17 @@ function renderStationDetail(station){
     <span class="station-kicker">STATION / ${html(station.code||station.id)}</span>
     <h3>${html(station.name)}</h3>${statusChip(station)}
     <div class="detail-split"><div class="detail-cell"><label>VÉLOS DISPONIBLES</label><strong>${station.bikes===null?'—':display(station.bikes)}</strong></div><div class="detail-cell"><label>BORNES LIBRES</label><strong>${station.docks===null?'—':display(station.docks)}</strong></div></div>
-    <div class="detail-meta"><span>Vélos mécaniques</span><strong>${station.mechanical==null?'Non qualifié':display(station.mechanical)}</strong></div>
-    <div class="detail-meta"><span>Vélos électriques</span><strong>${station.electric==null?'Non qualifié':display(station.electric)}</strong></div>
+    <div class="detail-meta"><span>Vélos mécaniques</span><strong>${station.mechanical==null?'Inconnu':display(station.mechanical)}</strong></div>
+    <div class="detail-meta"><span>Vélos électriques</span><strong>${station.electric==null?'Inconnu':display(station.electric)}</strong></div>
     <div class="detail-meta"><span>Capacité déclarée</span><strong>${display(station.capacity)} bornes</strong></div>
     <div class="detail-meta"><span>Dernier signal station</span><strong>${station.reported_at?localTime(station.reported_at):'Non disponible'}</strong></div>
     <div class="detail-meta"><span>Position</span><strong>${station.lat.toFixed(5)} / ${station.lon.toFixed(5)}</strong></div>
     <div class="station-quality">
-      <span class="station-kicker">QUALITÉ DE L’OBSERVATION ARCHIVÉE</span>
+      <span class="station-kicker">FIABILITÉ DES CHIFFRES</span>
       <ul>${qualityReasons(station).map(reason=>`<li>${html(reason)}</li>`).join('')}</ul>
-      ${station.lag_seconds!==null && station.lag_seconds!==undefined ? `<p>Retard du dernier signal : ${display(station.lag_seconds)} secondes</p>`:''}
+      ${station.lag_seconds!==null && station.lag_seconds!==undefined ? `<p>Temps écoulé depuis le dernier relevé : ${display(station.lag_seconds)} secondes</p>`:''}
     </div>
-    <p class="detail-disclaimer" style="margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6">Ces valeurs proviennent d’une capture archivée, et non d'une consultation en temps réel.</p>
+    <p class="detail-disclaimer" style="margin-top:18px;font-size:11px;color:var(--muted);line-height:1.6">Chiffres enregistrés à la date de la capture, pas en direct.</p>
   </div>`;
 }
 function stationRows(stations) {
@@ -369,9 +369,9 @@ function renderInspector(){
     const stations=state.clusterIds.map(id=>state.stations.find(s=>s.id===id)).filter(Boolean);
     box.innerHTML=`<div class="cluster-picker">
       <button type="button" class="back-btn" data-dismiss-cluster>← TOUTES LES STATIONS</button>
-      <span class="station-kicker">REPÈRE GÉOGRAPHIQUE / REGROUPEMENT</span>
+      <span class="station-kicker">STATIONS PROCHES</span>
       <h3>${display(stations.length)} stations à cet emplacement</h3>
-      <p>Les stations restent géographiquement rapprochées. Choisis une station pour ouvrir sa fiche.</p>
+      <p>Choisissez une station dans ce groupe pour voir ses informations.</p>
     </div><div class="station-list">${stationRows(stations)}</div>`;
     box.querySelector('[data-dismiss-cluster]').onclick=()=>{state.clusterIds=null;renderInspector();resetInspectorScroll();repaintMap()};
     bindStationRows();return;
@@ -397,7 +397,7 @@ function renderInspector(){
   }
   if(state.view==='territoires'){
     const sections=sectorSummaries(state.stations);
-    box.innerHTML=`<div class="side-section"><span class="station-kicker">ANALYSE SPATIALE / 04 SECTEURS</span><h3>Une autre lecture du territoire.</h3><p>Découpage analytique en quatre quadrants autour des médianes des coordonnées enregistrées. <strong>Ce ne sont pas des arrondissements administratifs.</strong></p><button class="territory-row ${state.sector==='all'?'selected':''}" data-sector="all"><span>Tout le réseau</span><strong>${display(state.stations.length)}</strong><small>STATIONS RÉFÉRENCÉES</small></button>${sections.map(s=>`<button class="territory-row ${state.sector===s.id?'selected':''}" data-sector="${s.id}"><span>${html(s.name)}</span><strong>${display(s.bikes)} <small>VÉLOS</small></strong><small>${display(s.stations)} stations · ${pct(s.emptyRate)} sans vélo (qualifiées)</small></button>`).join('')}</div>`;
+    box.innerHTML=`<div class="side-section"><span class="station-kicker">COMPARER LES 4 ZONES</span><h3>Les vélos par secteur</h3><p>Les stations sont réparties en quatre zones pour comparer leur disponibilité. <strong>Ces zones ne correspondent pas aux arrondissements.</strong></p><button class="territory-row ${state.sector==='all'?'selected':''}" data-sector="all"><span>Tout le réseau</span><strong>${display(state.stations.length)}</strong><small>STATIONS RÉFÉRENCÉES</small></button>${sections.map(s=>`<button class="territory-row ${state.sector===s.id?'selected':''}" data-sector="${s.id}"><span>${html(s.name)}</span><strong>${display(s.bikes)} <small>VÉLOS</small></strong><small>${display(s.stations)} stations · ${pct(s.emptyRate)} sans vélo (avec données utilisables)</small></button>`).join('')}</div>`;
     box.querySelectorAll('[data-sector]').forEach(btn=>btn.onclick=()=>{state.sector=btn.dataset.sector;renderInspector();paintStats();repaintMap();
       const points=filtered();if(state.mapReady&&state.map&&points.length){
         const bb=bounds(points);state.map.fitBounds([[bb.west,bb.south],[bb.east,bb.north]],{padding:42,maxZoom:13,duration:450});
@@ -407,18 +407,18 @@ function renderInspector(){
     const m=state.dataset.metrics,q=state.dataset.quality_diagnostics;
     const unobserved=q?.not_observed,unusable=q?.observed_but_unusable;
     box.innerHTML=`<div class="side-section quality-audit">
-      <span class="station-kicker">AUDIT / DERNIÈRE CAPTURE ARCHIVÉE</span>
-      <h3>Pourquoi des observations sont rejetées.</h3>
-      <p>Une station <strong>sans statut</strong> n’est pas une station sans vélo. Une station observée mais non exploitable reste exclue des sommes.</p>
+      <span class="station-kicker">DERNIÈRE CAPTURE</span>
+      <h3>Comprendre les données manquantes</h3>
+      <p>Si une station n'a pas de chiffres utilisables, nous ne pouvons pas dire qu'elle est vide. Elle n'est pas ajoutée aux totaux des vélos.</p>
       <div class="quality-overview">
-        <div><strong>${unobserved==null?'—':display(unobserved)}</strong><span>stations sans observation</span></div>
-        <div><strong>${unusable==null?'—':display(unusable)}</strong><span>observations reçues, non exploitables</span></div>
-        <div><strong>${q?.observed_non_operational==null?'—':display(q.observed_non_operational)}</strong><span>stations au service interrompu (peut chevaucher d'autres motifs)</span></div>
+        <div><strong>${unobserved==null?'—':display(unobserved)}</strong><span>stations sans données reçues</span></div>
+        <div><strong>${unusable==null?'—':display(unusable)}</strong><span>stations avec données inutilisables</span></div>
+        <div><strong>${q?.observed_non_operational==null?'—':display(q.observed_non_operational)}</strong><span>stations temporairement hors service</span></div>
       </div>
-      <button class="quality-open-list" type="button" id="inspect-unqualified">Inspecter les ${display(state.stations.filter(s=>!s.usable).length)} stations non qualifiées ↗</button>
-      <span class="station-kicker">SIGNALEMENTS DANS LA CAPTURE / ÉVÉNEMENTS</span>
+      <button class="quality-open-list" type="button" id="inspect-unqualified">Inspecter les ${display(state.stations.filter(s=>!s.usable).length)} stations aux données inconnues ↗</button>
+      <span class="station-kicker">PROBLÈMES SIGNALÉS</span>
       ${state.dataset.issues.length?state.dataset.issues.map(x=>`<div class="quality-row"><span>${html(issueLabel(x.code))}</span><strong>${display(x.count)}</strong></div>`).join(''):'<div class="quality-row"><span>Aucun signalement enregistré</span></div>'}
-      <p>Un signalement ne correspond pas nécessairement à une station unique, plusieurs motifs peuvent se cumuler. Aucun comptage de trajets ni réparation de valeurs manquantes.</p>
+      <p>Une même station peut rencontrer plusieurs problèmes. Les informations manquantes ne sont pas remplacées.</p>
     </div>`;
     $('inspect-unqualified').onclick=()=>{
       state.view='reseau';state.sector='all';state.selected=null;state.clusterIds=null;
@@ -436,19 +436,19 @@ function renderInspector(){
     const coverage=gate.coverage;
     const progress=(value,target)=>value===null?'—':pct(Math.min(1,value/target));
     box.innerHTML=`<div class="side-section forecast-readiness">
-      <span class="station-kicker">P5 / CONDITIONS D’ENTRAÎNEMENT</span>
+      <span class="station-kicker">PRÉVISIONS À 30 MINUTES</span>
       <span class="solid-tag">PRÉVISION NON DISPONIBLE</span>
-      <h3>Des preuves avant le modèle.</h3>
-      <p>Ce compteur lit les <strong>noms des archives GitHub sur 10 jours</strong>. Il ne garantit pas leurs sommes de contrôle, ni l’existence de paires valides à +30 minutes, ni la qualité prédictive.</p>
+      <h3>Les prévisions sont en préparation</h3>
+      <p>Nous rassemblons les données nécessaires. Les captures comptées ici doivent encore être vérifiées avant de pouvoir proposer des prévisions fiables.</p>
       <div class="p5-progress">
         <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} du seuil de quantité</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
-        <div class="p5-progress-row"><span>Étendue historique</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} du seuil calendaire</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
-        <div class="p5-progress-row"><span>Couverture indicative</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Calculée entre les premières et dernières archives recensées</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
+        <div class="p5-progress-row"><span>Jours de données</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} du seuil calendaire</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
+        <div class="p5-progress-row"><span>Continuité des captures</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Part des relevés disponibles dans la période étudiée</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
       </div>
-      <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Seuils atteints, à vérifier':'Seuils non atteints'}</strong></div>
-      <div class="detail-meta"><span>Paires futures +30 min</span><strong>Non vérifiées ici</strong></div>
-      <div class="detail-meta"><span>Évaluation ML vs baseline</span><strong>Non validée</strong></div>
-      <p class="readiness-note">${gate.checkedAt?'Inventaire vérifié le '+html(localTime(gate.checkedAt)):'Inventaire GitHub non joint à cet export. Lance une nouvelle exportation P6.'} · Aucune prévision ne sera affichée avant une validation P5 indépendante.</p>
+      <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Assez de captures, vérification en attente':'Encore des données à collecter'}</strong></div>
+      <div class="detail-meta"><span>Données pour les prévisions</span><strong>À vérifier</strong></div>
+      <div class="detail-meta"><span>Tests des prévisions</span><strong>Pas encore terminés</strong></div>
+      <p class="readiness-note">${gate.checkedAt?'Archives vérifiées le '+html(localTime(gate.checkedAt)):'Informations non disponibles. Actualisez les données.'} · Aucune prévision n'est affichée pour le moment. Nous vérifions d'abord qu'elle sera suffisamment fiable.</p>
     </div>`;
   }
 }
@@ -464,8 +464,8 @@ function renderTimeline() {
   const target=$('timeline-plot');
   const assessment=assessHistory(history,state.dataset.metrics.stations);
   $('timeline-quality').textContent=assessment.unknownCount?'—':display(assessment.reducedCount);
-  $('timeline-quality').title=assessment.unknownCount?'Couverture non mesurable pour certains points':
-    `${assessment.reducedCount} relevés avec moins de 90 % de la meilleure couverture de la fenêtre`;
+  $('timeline-quality').title=assessment.unknownCount?'Données manquantes pour certaines captures':
+    `${assessment.reducedCount} captures avec moins de stations utilisables que les autres`;
   const valid=assessment.points.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0&&Number.isFinite(Date.parse(p.at)));
   if(valid.length<2){
     target.innerHTML='<div class="timeline-empty">Historique insuffisant : moins de deux captures utilisables. Aucune tendance calculable.</div>';
@@ -486,18 +486,18 @@ function renderTimeline() {
   const dots=valid.map(p=>{
     const [x,y]=xy(p);
     const color=p.status==='reduced'?'#f5b17c':p.status==='unknown'?'#899fac':'#bce6cf';
-    const cover=p.catalogRatio===null?'Couverture inconnue':`${display(p.usable)} / ${display(state.dataset.metrics.stations)} stations exploitables (${pct(p.catalogRatio)})`;
-    const reason=p.status==='reduced'?' · couverture réduite, total non comparable':
-      p.status==='unknown'?' · comparabilité inconnue':' · couverture comparable';
+    const cover=p.catalogRatio===null?'Nombre de stations inconnu':`${display(p.usable)} / ${display(state.dataset.metrics.stations)} stations avec données utilisables (${pct(p.catalogRatio)})`;
+    const reason=p.status==='reduced'?' · capture incomplète, comparaison à prendre avec précaution':
+      p.status==='unknown'?' · données insuffisantes pour comparer':' · nombre de stations comparable';
     return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="${p.status==='reduced'?3.8:2.6}" fill="${color}" stroke="#0a191c" stroke-width="1"><title>${html(localTime(p.at))} · ${display(p.bikes)} vélos comptabilisés · ${html(cover+reason)}</title></circle>`;
   }).join('');
   // Second reading on the same time axis: coverage of usable station observations.
   const coverageDots=valid.filter(p=>p.catalogRatio!==null).map(p=>{
     const x=xy(p)[0],y=77+7*(1-p.catalogRatio);
     const color=p.status==='reduced'?'#f5b17c':'#73a9c9';
-    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations exploitables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
+    return `<circle cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" r="2" fill="${color}"><title>${html(localTime(p.at))} · ${display(p.usable)} stations avec données utilisables sur ${display(state.dataset.metrics.stations)}</title></circle>`;
   }).join('');
-  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos observés sur une échelle démarrant à zéro. Orange : couverture réduite. Trait bleu inférieur : stations exploitables.">
+  target.innerHTML=`<svg class="timeline-svg" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="Vélos observés sur une échelle démarrant à zéro. Orange : couverture réduite. Trait bleu inférieur : stations avec données utilisables.">
     <line x1="${left}" x2="${W-right}" y1="${bottom}" y2="${bottom}" stroke="#4a6767"/>
     <line x1="${left}" x2="${W-right}" y1="${top}" y2="${top}" stroke="#355055" stroke-dasharray="2 6"/>
     <text x="${left-5}" y="${top+3}" font-size="9" text-anchor="end" fill="#b5ced0">${display(ceiling)}</text>
@@ -508,11 +508,11 @@ function renderTimeline() {
     <text x="${W-right}" y="${H-1}" font-size="8" text-anchor="end" fill="#9fbec1">${html(localTime(valid.at(-1).at))}</text>
   </svg>`;
   const gapCount=gaps.filter(x=>x>20).length,notes=[];
-  if(assessment.reducedCount)notes.push(`${assessment.reducedCount} relevé(s) à couverture réduite (orange)`);
-  if(gapCount)notes.push(`${gapCount} lacune(s) de plus de 20 min`);
-  if(assessment.unknownCount)notes.push('couverture non mesurable pour certains relevés');
+  if(assessment.reducedCount)notes.push(`${assessment.reducedCount} capture(s) incomplète(s) (en orange)`);
+  if(gapCount)notes.push(`${gapCount} pause(s) de plus de 20 min`);
+  if(assessment.unknownCount)notes.push('nombre de stations inconnu pour certaines captures');
   $('timeline-explain').textContent=notes.length?notes.join(' · ')+'.':
-    'Échelle à zéro · points réels · bande bleue : stations exploitables.';
+    'Échelle à zéro · points réels · bande bleue : stations avec données utilisables.';
 }
 
 function renderAll(){updateNav();syncFilterButtons();paintStats();renderInspector();renderTimeline();repaintMap();}
