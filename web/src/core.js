@@ -70,6 +70,43 @@ export function historySegments(history, key='bikes') {
   if(run.length)segments.push(run);
   return segments;
 }
+/** C2.3 — A presentation-only comparability heuristic over REAL P3 captures.
+ * A point is marked "reduced coverage" when usable stations fall below 90%
+ * of the best usable count within this displayed history. 90% is a clearly
+ * disclosed visual warning threshold, NOT a P3 quality gate or ML threshold.
+ * If station counts are absent, comparability is unknown: do not guess.
+ * Never fill observations or replace bike counts.
+ */
+export function assessHistory(history, catalogStations, relativeFloor=0.90){
+  if(!Array.isArray(history)) throw new TypeError('Historique attendu');
+  if(!Number.isFinite(relativeFloor)||relativeFloor<=0||relativeFloor>1)
+    throw new RangeError('Seuil de présentation invalide');
+  const counts=history.map(item=>Number.isInteger(item.usable)&&item.usable>=0?item.usable:null);
+  const baseline=counts.some(n=>n!==null)?Math.max(...counts.filter(n=>n!==null)):null;
+  const countAvailable=Number.isInteger(catalogStations)&&catalogStations>0;
+  let reducedCount=0,unknownCount=0;
+  const points=history.map((item,i)=>{
+    const usable=counts[i],valid=usable!==null&&Number.isFinite(item.bikes)&&item.bikes>=0;
+    const referenceRatio=valid&&baseline>0?usable/baseline:null;
+    const catalogRatio=valid&&countAvailable?usable/catalogStations:null;
+    // Lack of evidence must NOT silently masquerade as "normal".
+    const status=!valid||referenceRatio===null?'unknown'
+      :referenceRatio<relativeFloor?'reduced':'comparable';
+    if(status==='reduced')reducedCount++;
+    if(status==='unknown')unknownCount++;
+
+    return {...item,referenceRatio,catalogRatio,status,
+      connected_to_previous:status==='comparable'&&i>0&&
+        item.connected_to_previous===true};
+  });
+  // Keep grouping logic independent of the renderer. Gaps are always explicit.
+  for(let i=1;i<points.length;i++){
+    points[i].connected_to_previous=points[i].connected_to_previous &&
+      points[i-1].status==='comparable';
+  }
+  return {points,baselineUsable:baseline,reducedCount,unknownCount,relativeFloor};
+}
+
 export function relativeAge(at,now=Date.now()) {
   const age=Math.max(0,Math.floor((now-Date.parse(at))/60000));
   if(!Number.isFinite(age))return 'heure indisponible';
