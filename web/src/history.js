@@ -27,18 +27,18 @@ function inspect(index){
   if(!Number.isInteger(index)||index<0||index>=visible.length)return;
   const point=visible[index],catalog=currentDataset.metrics.stations;
   selectedAt=point.at;
-  const unknown=point.status==='unknown',low=point.status==='reduced';
-  const status=unknown?'Données insuffisantes':low?'Capture incomplète':'Mesure comparable';
+  const unavailable=point.status==='unavailable',unknown=point.status==='unknown',low=point.status==='reduced';
+  const status=unavailable?'Données indisponibles':unknown?'Données insuffisantes':low?'Capture incomplète':'Mesure comparable';
   const info=document.getElementById('history-inspection');
   info.replaceChildren();
   info.append(node('span','history-inspection-title',localTime(point.at)));
-  const bikes=node('strong','history-inspection-bikes',display(point.bikes)+' ');
-  bikes.append(node('small',null,'vélos comptés'));
+  const bikes=node('strong','history-inspection-bikes',unavailable||point.bikes===null?'— ' : display(point.bikes)+' ');
+  bikes.append(node('small',null,unavailable?'aucune mesure fiable':'vélos comptés'));
   info.append(bikes);
   info.append(node('span','history-inspection-count',
     Number.isInteger(point.usable)?display(point.usable)+' / '+display(catalog)+' stations mesurées'
       :'Nombre de stations inconnu'));
-  info.append(node('span','history-inspection-status'+(low?' warn':''),status));
+  info.append(node('span','history-inspection-status'+(low||unavailable?' warn':''),status));
   document.querySelectorAll('.history-point').forEach(item=>{
     item.classList.toggle('selected',Number(item.dataset.historyIndex)===index);
   });
@@ -47,7 +47,8 @@ function inspect(index){
   const slider=document.getElementById('history-capture-slider');
   if(slider){
     slider.value=String(index);
-    slider.setAttribute('aria-valuetext',localTime(point.at)+', '+display(point.bikes)+' vélos, '+
+    slider.setAttribute('aria-valuetext',localTime(point.at)+', '+
+      (unavailable?'aucune mesure fiable':display(point.bikes)+' vélos')+', '+
       (point.usable===null?'nombre de stations inconnu':display(point.usable)+' stations mesurées')+
       ', '+status);
   }
@@ -62,28 +63,30 @@ export function renderHistory(dataset){
   document.getElementById('timeline-gap').textContent=gaps.length?
     Math.max(...gaps).toLocaleString('fr-FR',{maximumFractionDigits:1})+' min':'—';
   document.getElementById('timeline-quality').textContent=
-    usableHistory.unknownCount?'—':display(usableHistory.reducedCount);
-  const incomplete=usableHistory.reducedCount;
+    usableHistory.unknownCount?'—':display(usableHistory.incompleteCount);
+  const incomplete=usableHistory.incompleteCount;
   document.getElementById('timeline-explain').textContent=incomplete?
-    display(incomplete)+' '+(incomplete===1?'capture incomplète':'captures incomplètes')+' (orange).':
+    display(incomplete)+' '+(incomplete===1?'capture incomplète':'captures incomplètes')+
+      ' (orange)'+(usableHistory.unavailableCount?
+        ' · '+display(usableHistory.unavailableCount)+' sans mesure fiable':'')+'.':
     'Les points orange signalent des captures incomplètes.';
-  visible=usableHistory.points.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0&&
-    Number.isFinite(Date.parse(p.at)));
+  visible=usableHistory.points.filter(p=>Number.isFinite(Date.parse(p.at)));
   const target=document.getElementById('timeline-plot');
   target.replaceChildren();
-  if(visible.length<2){
+  if(visible.filter(p=>Number.isFinite(p.bikes)&&p.usable>0).length<2){
     target.append(node('div','timeline-empty','Pas assez de captures pour afficher l’évolution.'));
     document.getElementById('history-inspection').textContent='Aucune capture à inspecter.';
     return;
   }
-  const mainScale=historyDetailScale(visible);
+  const mainScale=historyDetailScale(visible.filter(p=>p.usable>0&&Number.isFinite(p.bikes)));
   const catalog=dataset.metrics.stations,peak=Math.max(catalog,...visible.map(p=>p.usable||0),1);
   const stationMax=Math.ceil(peak/100)*100;
   const first=Date.parse(visible[0].at),last=Date.parse(visible.at(-1).at),span=Math.max(1,last-first);
   const width=Math.max(290,Math.round(target.clientWidth)-20);
   const left=50,right=width-13,yTop=28,yBottom=98,barTop=147,barBottom=184;
   const xOf=p=>left+(right-left)*(Date.parse(p.at)-first)/span;
-  const yOf=p=>yBottom-(yBottom-yTop)*
+  const yOf=p=>p.status==='unavailable'||p.bikes===null?yBottom-8:
+    yBottom-(yBottom-yTop)*
     (Math.max(mainScale.min,Math.min(mainScale.max,p.bikes))-mainScale.min)/
     (mainScale.max-mainScale.min);
   const yStation=p=>barBottom-(barBottom-barTop)*p.usable/stationMax;
@@ -129,15 +132,22 @@ export function renderHistory(dataset){
     x1:xPositions[0],x2:xPositions[0],y1:23,y2:barBottom,'pointer-events':'none'});
   const barWidth=Math.max(2.5,Math.min(11,(right-left)/visible.length*.65));
   visible.forEach((p,index)=>{
-    const x=xOf(p),y=yOf(p),outside=p.bikes<mainScale.min||p.bikes>mainScale.max;
+    const x=xOf(p),y=yOf(p),unavailable=p.status==='unavailable',
+      outside=!unavailable&&(p.bikes<mainScale.min||p.bikes>mainScale.max);
     const low=p.status==='reduced',unknown=p.status==='unknown';
-    const color=low?'#f3ae80':unknown?'#93a0ad':'#a1ecc1';
+    const color=unavailable?'#d6a09a':low?'#f3ae80':unknown?'#93a0ad':'#a1ecc1';
     const group=svgNode(svg,'g',{'data-history-index':index,class:'history-point',role:'presentation'});
     svgNode(group,'circle',{cx:x,cy:y,r:low?4.5:3.7,fill:color,stroke:'#06151a',
       'stroke-width':1.5,class:'history-bike-dot'});
     svgNode(group,'circle',{cx:x,cy:y,r:10,fill:'transparent',class:'history-hit'});
-    svgNode(group,'title',{},localTime(p.at)+', '+display(p.bikes)+' vélos comptés'+
+    svgNode(group,'title',{},localTime(p.at)+', '+
+      (unavailable?'aucune mesure fiable disponible':display(p.bikes)+' vélos comptés')+
       (outside?', hors échelle détaillée':''));
+    if(unavailable){
+      svgNode(group,'path',{d:'M '+(x-4)+' '+(y-4)+' L '+(x+4)+' '+(y+4)+
+        ' M '+(x+4)+' '+(y-4)+' L '+(x-4)+' '+(y+4),
+        stroke:'#e5a19b','stroke-width':2,fill:'none','pointer-events':'none'});
+    }
     if(outside){
       const towardLow=p.bikes<mainScale.min,atY=towardLow?yBottom-8:yTop+8;
       svgNode(group,'path',{d:'M '+(x-4)+' '+(atY-4)+' L '+x+' '+(atY+3)+
@@ -153,9 +163,10 @@ export function renderHistory(dataset){
     if(!Number.isInteger(p.usable))return;
     const y=yStation(p),x=xOf(p);
     const bar=svgNode(svg,'rect',{x:x-barWidth/2,y,width:barWidth,
-      height:Math.max(.5,barBottom-y),class:'history-station-bar history-point',
+      height:Math.max(p.status==='unavailable'?3:.5,barBottom-y),class:'history-station-bar history-point',
       fill:p.status==='reduced'?'#f3ae80':'#80b9e2','data-history-index':index});
-    svgNode(bar,'title',{},localTime(p.at)+', '+display(p.usable)+' stations mesurées');
+    svgNode(bar,'title',{},localTime(p.at)+', '+display(p.usable)+' stations mesurées'+
+      (p.status==='unavailable'?', capture inexploitable':''));
   });
   const foot=node('div','history-plot-foot');
   const legend=node('div','history-legend');

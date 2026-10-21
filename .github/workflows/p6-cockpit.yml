@@ -112,6 +112,15 @@ jobs:
           set -euo pipefail
           mapfile -t captures < /tmp/p6-selected.txt
           python -m scripts.replay_capture --db-url sqlite:///./data/p6-real.sqlite "${captures[@]}" > data/p6-replay.json
+      - name: Diagnose any zero-usable archived P3 collections (forensic, no guesses)
+        run: |
+          python -m scripts.diagnose_p3_capture --db-url sqlite:///./data/p6-real.sqlite --output data/p6-quality-diagnostic.json
+      - name: Preserve quality diagnostics from the verified P3 replay
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-p3-zero-usable-diagnostic
+          path: data/p6-quality-diagnostic.json
+          retention-days: 14
       - name: Inventory P5 readiness from last ten days of GitHub asset names
         run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/p5-inventory.json
       - name: Export actual map, station metrics, history and qualified readiness

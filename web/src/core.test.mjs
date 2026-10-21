@@ -195,3 +195,22 @@ test('C2.6: network overview reduces pins, zoom reveals stations, and IDs remain
  const alone=selected.find(p=>p.selected);
  assert.deepEqual(alone.ids,['s50'],'Selected real station remains independently accessible');
 });
+
+test('zero usable stations is not a real zero-bike measurement',()=>{
+ const h=[
+  {at:'2026-10-21T09:01:00Z',usable:3,bikes:0,connected_to_previous:false},
+  {at:'2026-10-21T09:06:00Z',usable:0,bikes:0,connected_to_previous:true},
+  {at:'2026-10-21T09:11:00Z',usable:3,bikes:15,connected_to_previous:true},
+ ];
+ const a=assessHistory(h,3);
+ assert.deepEqual(a.points.map(p=>p.status),['comparable','unavailable','comparable']);
+ assert.equal(a.unavailableCount,1);
+ assert.equal(a.incompleteCount,1);
+ assert.deepEqual(a.points.map(p=>p.connected_to_previous),[false,false,false]);
+ assert.equal(a.points[0].bikes,0,'A genuine zero from usable stations remains zero');
+ assert.equal(a.points[1].bikes,0,'Raw legacy zero stays untouched in the source model');
+ assert.equal(historySegments(a.points).length,3,'There are no false continuous lines');
+ const truth=assessHistory([{usable:0,bikes:null,connected_to_previous:false}],3);
+ assert.equal(truth.points[0].status,'unavailable');
+ assert.equal(truth.incompleteCount,1);
+});
