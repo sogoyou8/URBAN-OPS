@@ -57,30 +57,39 @@ function updateFreshness() {
   if(!state.dataset)return;
   const at=state.dataset.captured_at;
   const recent=captureFreshness(at);
+  const noData=state.dataset.metrics.usable===0;
   const truth=document.querySelector('.truth');
-  truth.classList.toggle('good',recent==='recent');
-  $('freshness-label').textContent=recent==='recent'?'CAPTURE RÉCENTE':recent==='aging'?'ARCHIVE EN DIFFÉRÉ':'ARCHIVE ANCIENNE';
-  $('capture-time').textContent=`Capture : ${localTime(at)} · il y a ${relativeAge(at)}`;
+  truth.classList.toggle('good',!noData&&recent==='recent');
+  truth.classList.toggle('unusable',noData);
+  $('freshness-label').textContent=noData?'CAPTURE INEXPLOITABLE':
+    recent==='recent'?'CAPTURE RÉCENTE':recent==='aging'?'ARCHIVE EN DIFFÉRÉ':'ARCHIVE ANCIENNE';
+  $('capture-time').textContent=`Capture : ${localTime(at)} · il y a ${relativeAge(at)}${noData?' · aucune station mesurée':''}`;
   $('top-capture').textContent=`ARCHIVE ${localTime(at)}`;
-  document.querySelector('.signal').classList.toggle('stale',recent==='stale');
+  document.querySelector('.signal').classList.toggle('stale',noData||recent==='stale');
   $('reload').title='Relire le fichier de données archivé (ne lance aucune collecte Vélib’)';
 }
 function paintStats() {
   const d=state.dataset, m=d.metrics;
+  const noData=m.usable===0;
   const qualified=summary(state.sector==='all'?state.stations:state.stations.filter(s=>s.sector===state.sector));
   const issues=d.issues.reduce((n,i)=>n+i.count,0);
   const ml=p5Gate(d);
   const values={
     reseau:[
       ['STATIONS DU RÉSEAU',display(m.stations),'stations présentes dans le réseau'],
-      ['VÉLOS DISPONIBLES',display(m.bikes),'dans les stations avec données utilisables'],
-      ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations avec données utilisables`],
-      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${display(m.unusable)} données inutilisables`],
+      ['VÉLOS DISPONIBLES',noData?'—':display(m.bikes),
+        noData?'Aucune mesure fiable dans cette capture':'dans les stations avec données utilisables'],
+      ['STATIONS SANS VÉLO',noData?'—':display(m.empty),
+        noData?'Impossible de déterminer les stations vides':`${pct(m.empty/m.usable)} des ${display(m.usable)} stations avec données utilisables`],
+      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),
+        noData?'Aucune station avec données utilisables':`${display(m.unusable)} données inutilisables`],
     ],
     territoires:[
       ['ZONES COMPARÉES', '4', '4 zones du réseau, pas des arrondissements'],
-      ['VÉLOS COMPTÉS',display(qualified.bikes),'dans la zone choisie'],
-      ['STATIONS SANS VÉLO',display(qualified.empty),`${pct(qualified.emptyRate)} des stations avec données utilisables`],
+      ['VÉLOS COMPTÉS',qualified.usable===0?'—':display(qualified.bikes),
+        qualified.usable===0?'Aucune mesure fiable dans cette zone':'dans la zone choisie'],
+      ['STATIONS SANS VÉLO',qualified.usable===0?'—':display(qualified.empty),
+        qualified.usable===0?'Données insuffisantes pour cette zone':`${pct(qualified.emptyRate)} des stations avec données utilisables`],
       ['STATIONS AVEC DONNÉES FIABLES',display(qualified.usable),`${display(qualified.stations)} stations dans la zone`],
     ],
     fiabilite:[
