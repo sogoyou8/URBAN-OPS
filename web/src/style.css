@@ -380,3 +380,17 @@ html,body{max-width:100%;overflow-x:clip}
   .timeline-meta strong{font-size:19px}
   .timeline-meta small{font-size:9px;line-height:1.45;margin:0;white-space:normal}
 }
+
+
+/* C2.4 — The chart's dates are HTML captions, never squeezed SVG text. */
+.timeline-plot{display:flex;flex-direction:column;gap:3px;min-height:0}
+.timeline-svg{display:block;flex:1 1 auto;min-height:0;height:auto}
+.timeline-dates{
+  flex:none;display:flex;align-items:center;justify-content:space-between;
+  gap:12px;color:#9bb9bc;font:9px var(--mono);white-space:nowrap;
+  line-height:1.4;
+}
+@media(max-width:540px){
+  .timeline-plot{gap:5px}
+  .timeline-dates{font-size:10px}
+}
