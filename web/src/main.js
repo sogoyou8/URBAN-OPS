@@ -71,25 +71,25 @@ function paintStats() {
   const ml=p5Gate(d);
   const values={
     reseau:[
-      ['STATIONS DU RÉSEAU',display(m.stations),'dans le réseau Vélib’'],
+      ['STATIONS DU RÉSEAU',display(m.stations),'stations présentes dans le réseau'],
       ['VÉLOS DISPONIBLES',display(m.bikes),'dans les stations avec données utilisables'],
       ['STATIONS SANS VÉLO',display(m.empty),`${pct(m.usable?m.empty/m.usable:null)} des ${display(m.usable)} stations qualifiées`],
-      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${display(m.unusable)} observations non exploitables`],
+      ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${display(m.unusable)} données inutilisables`],
     ],
     territoires:[
       ['ZONES COMPARÉES', '4', '4 zones du réseau, pas des arrondissements'],
       ['VÉLOS COMPTÉS',display(qualified.bikes),'dans la zone choisie'],
-      ['STATIONS SANS VÉLO',display(qualified.empty),`${pct(qualified.emptyRate)} des stations qualifiées`],
-      ['STATIONS AVEC DONNÉES FIABLES',display(qualified.usable),`${display(qualified.stations)} stations dans le périmètre`],
+      ['STATIONS SANS VÉLO',display(qualified.empty),`${pct(qualified.emptyRate)} des stations avec données utilisables`],
+      ['STATIONS AVEC DONNÉES FIABLES',display(qualified.usable),`${display(qualified.stations)} stations dans la zone`],
     ],
     fiabilite:[
       ['STATIONS AVEC DONNÉES FIABLES',display(m.usable),`${pct(m.observed?m.usable/m.observed:null)} des observations`],
       ['DONNÉES INUTILISABLES',display(m.unusable),'chiffres reçus, mais non utilisables'],
-      ['SIGNALEMENTS QUALITÉ',display(issues),'une station peut avoir plusieurs alertes'],
-      ['CAPTURES HISTORIQUES',display(m.capture_count),'captures utilisées pour cet écran'],
+      ['PROBLÈMES SIGNALÉS',display(issues),'une station peut avoir plusieurs alertes'],
+      ['CAPTURES UTILISÉES',display(m.capture_count),'captures utilisées pour cet écran'],
     ],
     previsions:[
-      ['PRÉVISION PRÉVUE','30 min','disponibilité estimée dans 30 minutes'],
+      ['PRÉVISION À VENIR','30 min','estimation à 30 minutes, pas encore disponible'],
       ['CAPTURES RECENSÉES',ml.available?display(ml.captures):'—','captures recensées, à vérifier avant prévision'],
       ['JOURS DE DONNÉES',ml.available?String(ml.days.toLocaleString('fr-FR',{maximumFractionDigits:1})):'—','7 jours minimum nécessaires'],
       ['FIABILITÉ DES PRÉVISIONS','—','pas encore mesurée'],
@@ -441,14 +441,14 @@ function renderInspector(){
       <h3>Les prévisions sont en préparation</h3>
       <p>Nous rassemblons les données nécessaires. Les captures comptées ici doivent encore être vérifiées avant de pouvoir proposer des prévisions fiables.</p>
       <div class="p5-progress">
-        <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} du seuil de quantité</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
-        <div class="p5-progress-row"><span>Jours de données</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} du seuil calendaire</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
+        <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} de l'objectif de captures</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
+        <div class="p5-progress-row"><span>Jours de données</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} de l'objectif de jours</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
         <div class="p5-progress-row"><span>Continuité des captures</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Part des relevés disponibles dans la période étudiée</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
       </div>
       <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Assez de captures, vérification en attente':'Encore des données à collecter'}</strong></div>
       <div class="detail-meta"><span>Données pour les prévisions</span><strong>À vérifier</strong></div>
       <div class="detail-meta"><span>Tests des prévisions</span><strong>Pas encore terminés</strong></div>
-      <p class="readiness-note">${gate.checkedAt?'Archives vérifiées le '+html(localTime(gate.checkedAt)):'Informations non disponibles. Actualisez les données.'} · Aucune prévision n'est affichée pour le moment. Nous vérifions d'abord qu'elle sera suffisamment fiable.</p>
+      <p class="readiness-note">${gate.checkedAt?'Archives recensées le '+html(localTime(gate.checkedAt)):'Informations non disponibles. Actualisez les données.'} · Aucune prévision n'est affichée pour le moment. Nous vérifions d'abord qu'elle sera suffisamment fiable.</p>
     </div>`;
   }
 }
@@ -468,8 +468,8 @@ function renderTimeline() {
     `${assessment.reducedCount} captures avec moins de stations utilisables que les autres`;
   const valid=assessment.points.filter(p=>Number.isFinite(p.bikes)&&p.bikes>=0&&Number.isFinite(Date.parse(p.at)));
   if(valid.length<2){
-    target.innerHTML='<div class="timeline-empty">Historique insuffisant : moins de deux captures utilisables. Aucune tendance calculable.</div>';
-    $('timeline-explain').textContent='Les valeurs manquantes ne sont jamais remplacées par zéro.';
+    target.innerHTML='<div class="timeline-empty">Pas assez de captures pour afficher l’évolution.</div>';
+    $('timeline-explain').textContent='Certaines données manquent : impossible de montrer la courbe.';
     return;
   }
   // Avoid the misleading impression that historical totals plunge towards zero:
@@ -512,7 +512,7 @@ function renderTimeline() {
   if(gapCount)notes.push(`${gapCount} pause(s) de plus de 20 min`);
   if(assessment.unknownCount)notes.push('nombre de stations inconnu pour certaines captures');
   $('timeline-explain').textContent=notes.length?notes.join(' · ')+'.':
-    'Échelle à zéro · points réels · bande bleue : stations avec données utilisables.';
+    'Vélos comptés à chaque capture · points du bas : stations mesurées.';
 }
 
 function renderAll(){updateNav();syncFilterButtons();paintStats();renderInspector();renderTimeline();repaintMap();}
