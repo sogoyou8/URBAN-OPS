@@ -184,7 +184,9 @@ def validation_segments(examples: list[Example], predictions: dict) -> dict:
 
 
 def compare_candidates(train: list[Example], validation: list[Example],
-                       captures: Iterable) -> dict:
+                       captures: Iterable, *, min_core: int = 5000,
+                       min_calibration: int = 1000,
+                       min_validation: int = 1000) -> dict:
     """Fit on chronological train-core, choose filter on train-calibration.
 
     The outer VALIDATION is touched only once for final V2.3 comparison.
@@ -199,7 +201,7 @@ def compare_candidates(train: list[Example], validation: list[Example],
     if any(x.feature_at < boundary for x in validation):
         raise ValueError("Validation leaked into training block")
     core, calibration = partition_training(train, inner_cutoff(capture_times, boundary))
-    if len(core) < 5000 or len(calibration) < 1000 or len(validation) < 1000:
+    if len(core) < min_core or len(calibration) < min_calibration or len(validation) < min_validation:
         return {
             "status": "insufficient_labeled_pairs",
             "core": len(core), "calibration": len(calibration),
