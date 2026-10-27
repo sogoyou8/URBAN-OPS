@@ -39,3 +39,38 @@ Outre la persistance, la régression résiduelle brute et le filtrage conservate
 Rapporter les MAE/RMSE, les fractions de prédictions modifiées, les jours couverts en validation et les règles effectivement choisies *sur la calibration interne*, sans réinterpréter un modèle égal à la persistance comme une victoire ML.
 
 **Prochaine phase V2.4 :** verrouiller méthode et réglages, collecter des données **futures inédites**, puis mesurer si la MAE bat réellement la persistance sur jours ouvrés et week-end ; ne déployer qu'après validation explicite.
+
+
+## Résultats V2.3.1 sur archives réelles — 27 octobre 2026
+
+**Exécution réussie :** https://github.com/sogoyou8/URBAN-OPS/actions/runs/40483638807
+
+**Artifact temporaire GitHub (14 jours) :** `urban-ops-v231-research-40483638807`, contenant `V2_3_1_STABILITY_COMPARISON.json` et l'inventaire P3. Les résultats sont issus de **2 147 archives réelles rejouées et vérifiées** (capture finale incluse dans l'exécution ; l'inventaire initial recense 2 146). Couverture temporelle indicative de **96,91 %** sur **7,514 jours**, 2 098 créneaux de cinq minutes distincts sur 2 165 attendus.
+
+**Découpage :** 1 643 637 paires train admissibles → 90 000 échantillonnées (72 279 apprentissage interne, 17 323 calibration interne, avec purge à la frontière). 531 976 paires validation admissibles → 20 000 échantillonnées. Validation du 24/10/2026 09:43:06.8 UTC au 25/10/2026 21:47:09.4 UTC, couvrant **uniquement le samedi et dimanche**, zéro observation de semaine. L'ancien bloc test est **exclu**.
+
+### Comparaison historique V2.3.1 — MAE prioritaire
+
+| Méthode | MAE ↓ | RMSE ↓ | Prédictions modifiées |
+|---|---:|---:|---:|
+| **Persistance** | **0,9486** | 1,6654 | 0 % |
+| Résidu ML brut | 0,9544 | **1,6633** | 6,19 % |
+| Ancien résidu conservateur | **0,9486** | 1,6654 | 0 % |
+| Tendance historique bornée | **0,9486** | 1,6654 | 0 % |
+| Classification des changements + correction | **0,9486** | 1,6654 | 0 % |
+
+**Point essentiel :** la méthode conservatrice, la tendance bornée et le classifieur utilisent tous une correction de **zéro** parce que la calibration de l'entraînement a choisi ce réglage. **Ils reproduisent exactement la persistance** ; ce ne sont pas des modèles ML gagnants. Les seuils retenus sont (alpha, seuil) = (0,0) pour la tendance, (alpha, probabilité, seuil résiduel) = (0,1,0) pour le filtrage classifié ; l'ancienne correction résiduelle calibrée a aussi `alpha=0`.
+
+### Pourquoi l'IA brute ne gagne pas ?
+
+- **9 382 exemples réellement stables** : la persistance obtient MAE 0,0000 et l'IA résiduelle 0,0367.
+- **10 618 exemples ayant réellement changé** : persistance MAE 1,7867 ; IA résiduelle MAE 1,7653. Le gain sur les changements ne compense pas la dégradation sur les observations stables.
+- Les **25 caractéristiques** expérimentales sont présentes au moins une fois dans l'entraînement (aucune colonne entièrement absente dans ce replay). La correction anti-colonnes 100 % NaN a été testée sur fixtures et n'a pas nécessité d'exclusion sur ces archives.
+
+### Décision et prochaine étape
+
+**V2.3.1 techniquement achevée, mais aucun candidat ne bat la persistance en MAE.** `safe_to_publish_forecasts=false`, `model_exported=false`, `forecast_exported=false`. La PR de recherche reste volontairement **ouverte en brouillon**, **non fusionnée dans main**, sans changement Vercel V1.
+
+**Recommandation : ne pas multiplier les seuils sur le même week-end**, ce qui ferait du surajustement. Pour V2.4, fixer avant son observation une méthode de référence et un protocole chronologique, puis obtenir une **nouvelle période future indépendante** contenant des jours ouvrés et un week-end. La meilleure méthode actuelle est la persistance ; tant qu'une IA ne démontre pas d'amélioration réelle et reproductible de MAE, aucune prévision IA à +30 min ne sera activée.
+
+La MAE des différentes exécutions P5/V2.3/V2.3.1 n'est **pas comparable directement** : elles reposent sur des plages de captures, frontières temporelles et échantillons modifiés au fil de la collecte.
