@@ -45,3 +45,41 @@ La méthode conservatrice peut être exactement équivalente à la persistance (
 ## Statut
 
 Développement V2.3 intégré dans une branche de recherche distincte ; **résultats réels à renseigner après le job GitHub**, sans inventer de score. Le site `https://urban-ops.vercel.app/` reste la V1 publique figée.
+
+
+## Résultats de l'exécution réelle du 27 octobre 2026
+
+- **Exécution GitHub :** https://github.com/sogoyou8/URBAN-OPS/actions/runs/40475608204
+- **Archive de preuve :** artifact `urban-ops-v23-validation-only-40475608204` (JSON de comparaison + inventaire, rétention 14 jours).
+- **Source :** 2 134 replays P3 vérifiés SHA-256 ; 2 085 créneaux UTC distincts sur 2 152 théoriques, soit 96,89 % de couverture indicative, sur 7,469 jours.
+- **Échantillons :** 90 000 train / 20 000 validation ; train interne effectivement 72 346 fit et 17 257 calibration. 1 633 989 paires admissibles train et 528 128 validation avant échantillonnage.
+- **Découpage :** validation à partir du 24 octobre 2026 à 09:04:06 UTC ; ancien bloc test à partir du 25 octobre à 20:55:09 UTC, explicitement **non évalué** dans V2.3.
+- **Limite :** les 20 000 observations de validation appartiennent **uniquement aux 24 et 25 octobre 2026 (week-end)** ; aucune généralisation aux jours de semaine n'est établie.
+
+### Comparaison MAE / RMSE en validation
+
+| Approche | MAE (vélos) ↓ | RMSE (vélos) ↓ | Part des prédictions modifiées |
+| --- | ---: | ---: | ---: |
+| **Persistance** | **0,9786** | 1,7163 | 0 % |
+| Résiduel ML | 0,9790 | **1,7125** | 6,48 % |
+| Résiduel conservateur | 0,9790 | 1,7145 | **0,88 %** |
+
+Pour la méthode conservatrice, la calibration interne a retenu **alpha=1** et un seuil de correction de **1 vélo** : 1,0392 MAE, contre 1,0409 pour la persistance sur les seules données de calibration. Ce très faible avantage **ne s'est pas reproduit** sur la validation externe (0,9790 contre 0,9786). Il est interdit de requalifier cette méthode comme gagnante.
+
+### Analyse exploratoire a posteriori sur la validation
+
+| Situation connue après coup | Observations | Persistance MAE | Résiduel ML MAE | Conservateur MAE |
+| --- | ---: | ---: | ---: | ---: |
+| La station a réellement changé | 10 726 | 1,8246 | **1,8169** | 1,8220 |
+| Le nombre de vélos est resté stable | 9 274 | **0,0000** | 0,0099 | 0,0040 |
+
+Le résiduel peut légèrement mieux suivre certains changements mais introduit des erreurs quand les vélos restent identiques. **Il est impossible d'utiliser le vrai statut futur « changé / inchangé » comme entrée du modèle.**
+
+### Décision après V2.3
+
+**Status : `compared_on_existing_validation_only`, pas `validated_model`.** Aucun modèle sérialisé, aucune prévision exportée, aucune modification de V1.
+
+- Aucun candidat ne bat la persistance en MAE sur cette validation ; **ne pas promouvoir un modèle pour V2.4 ni publier de prévisions.**
+- Une itération V2.3.1 peut étudier des algorithmes plus simples (correction robuste, modèles à prédiction de changement) et surtout une validation sur plusieurs journées (ouvrées et week-end), en veillant à ne pas suradapter les hyperparamètres aux 24–25 octobre déjà inspectés.
+- Après fixation définitive des variables, du modèle et du protocole, V2.4 devra évaluer un **nouveau jeu de données futur**, jamais inspecté pendant la sélection, incluant des jours ouvrés et un week-end.
+- Conserver la collecte P3 et V1 sur Vercel ; **aucun déploiement** V2.
