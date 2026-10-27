@@ -1,0 +1,74 @@
+name: Urban Ops V1 — refresh Vercel archive
+on:
+  schedule:
+    # UTC: four attempts per day, deliberately not a real-time feed.
+    - cron: '17 1,7,13,19 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/vercel-v1-refresh.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: urban-ops-vercel-snapshot-refresh
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the existing real-release selector and tests
+        run: python -m pip install -e '.[test]'
+      - name: Check refresh eligibility
+        run: |
+          python -m pytest -q tests/test_vercel_public.py
+          python - <<'PY'
+          import json
+          from datetime import datetime, timezone
+          from pathlib import Path
+
+          import requests
+          from scripts.build_vercel_public import recent_assets
+
+          state = Path(".github/urban-ops-vercel-refresh.json")
+          assets = recent_assets(requests.Session(), datetime.now(timezone.utc))
+          latest = assets[-1]
+          newer = latest["date"].isoformat(timespec="seconds")
+          previous = json.loads(state.read_text()).get("latest_capture_utc") if state.exists() else ""
+          if previous >= newer:
+              print(f"No new verified archive candidate since {previous}; leave current Vercel site untouched")
+          else:
+              state.write_text(json.dumps({
+                  "latest_capture_utc": newer,
+                  "latest_asset_name": latest["name"],
+                  "source": "P3 GitHub Release filename inventory (build re-verifies SHA-256)",
+                  "trigger_mode": "scheduled-Git-push",
+                  "note": "Trigger metadata only. No station data committed, no validated ML prediction."
+              }, ensure_ascii=False, indent=2) + "\n")
+              print(f"Latest candidate {newer}; schedule one audited Vercel rebuild")
+          PY
+      - name: Trigger linked Vercel production deployment with a metadata-only Git commit
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- .github/urban-ops-vercel-refresh.json && [ -f .github/urban-ops-vercel-refresh.json ]; then
+            echo "No new snapshot; no push or deployment"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/urban-ops-vercel-refresh.json
+          git commit -m "chore(urban-ops): refresh verified V1 snapshot"
+          git push origin HEAD:main
+          echo "Git push requests a Vercel production build via the existing GitHub integration."
+          echo "Vercel build checks replay SHA-256, age <=3h, quality, and disabled P5; on failure old production stays."
