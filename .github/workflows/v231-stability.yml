@@ -1,0 +1,90 @@
+name: Urban Ops V2.3.1 — station stability research (NO DEPLOY)
+
+on:
+  push:
+    branches: [research/v2-3-1-stability-gating]
+    paths:
+      - 'src/urban_ops/v231_stability.py'
+      - 'scripts/train_v231.py'
+      - 'tests/test_v231_stability.py'
+      - '.github/workflows/v231-stability.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urban-ops-v231-stability-branch
+  cancel-in-progress: false
+
+jobs:
+  tests:
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-3-1-stability-gating'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install P3/P5 and offline research ML packages
+        run: python -m pip install -e '.[ml,test]'
+      - name: Validate past-only variables, chronology and guarded tuning
+        run: |
+          python -m pytest -q tests/test_v231_stability.py tests/test_v23_candidates.py tests/test_v2_research.py tests/test_p5_forecasting.py
+
+  real-captures:
+    needs: tests
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-3-1-stability-gating'
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependency-pinned P3 history pipeline and research ML tools
+        run: python -m pip install -e '.[ml]'
+      - name: Inventory real timestamped archives
+        id: inventory
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/v231-p5-inventory.json
+      - name: Download real P3 release assets
+        if: steps.inventory.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/v231-captures
+          python - <<'PY' > /tmp/v231-release-tags.txt
+          import json
+          for tag in json.load(open('data/v231-p5-inventory.json'))['release_tags']:
+              print(tag)
+          PY
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/v231-captures
+          done < /tmp/v231-release-tags.txt
+          test "$(find data/v231-captures -name 'capture-*.tar.gz' | wc -l)" -ge 900
+      - name: Rebuild verified real capture history with SHA-256
+        if: steps.inventory.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' archives < <(find data/v231-captures -name 'capture-*.tar.gz' -print0 | sort -z)
+          python -m scripts.replay_capture --db-url sqlite:///./data/v231-history.sqlite "${archives[@]}" > data/v231-replay.json
+      - name: Fit two V2.3.1 methods and compare on existing historical validation
+        if: steps.inventory.outputs.ready == 'true'
+        run: |
+          python -m scripts.train_v231 --db-url sqlite:///./data/v231-history.sqlite \
+            --replay-evidence data/v231-replay.json --output data/v231-research
+      - name: Archive JSON evidence only — no model binaries or public forecasts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-v231-research-${{ github.run_id }}
+          path: |
+            data/v231-p5-inventory.json
+            data/v231-research/V2_3_1_STABILITY_COMPARISON.json
+          if-no-files-found: warn
+          retention-days: 14
