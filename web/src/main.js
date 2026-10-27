@@ -1,7 +1,7 @@
 import {renderHistory} from './history.js';
 import { STATUS, validateDataset, selectStations, bounds, sectors, sectorSummaries, summary,
          relativeAge, captureFreshness, html, display, pct, localTime,
-         layoutMapMarkers, pickMapMarker, viewportCounts, issueLabel, p5Gate, qualityReasons } from './core.js';
+         layoutMapMarkers, pickMapMarker, viewportCounts, issueLabel, qualityReasons } from './core.js';
 
 const $ = id => document.getElementById(id);
 const COLORS = {available:'#94dabb',empty:'#efac84',unknown:'#78919c'};
@@ -13,7 +13,7 @@ const GUIDE_CONTEXT={
   reseau:['Réseau','Cliquez sur une station pour voir les vélos disponibles, les bornes libres et la date du dernier relevé.'],
   territoires:['Territoires','Comparez les disponibilités dans quatre zones du réseau. Ce ne sont pas les arrondissements de Paris.'],
   fiabilite:['Fiabilité','Découvrez les stations dont les chiffres manquent ou ne peuvent pas être utilisés.'],
-  previsions:['Prévisions','Les prévisions à 30 minutes sont en préparation. Pour le moment, cette section montre les données déjà rassemblées.']
+  previsions:['Prévisions','Une première expérimentation à 30 minutes a été évaluée sur des données réelles, sans gain suffisant face à une méthode simple. Les prévisions restent désactivées.']
 };
 let guideReturnFocus=null;
 function updateGuideContext(){
@@ -73,7 +73,6 @@ function paintStats() {
   const noData=m.usable===0;
   const qualified=summary(state.sector==='all'?state.stations:state.stations.filter(s=>s.sector===state.sector));
   const issues=d.issues.reduce((n,i)=>n+i.count,0);
-  const ml=p5Gate(d);
   const values={
     reseau:[
       ['STATIONS DU RÉSEAU',display(m.stations),'stations présentes dans le réseau'],
@@ -99,10 +98,10 @@ function paintStats() {
       ['CAPTURES UTILISÉES',display(m.capture_count),'captures utilisées pour cet écran'],
     ],
     previsions:[
-      ['PRÉVISION À VENIR','30 min','estimation à 30 minutes, pas encore disponible'],
-      ['CAPTURES RECENSÉES',ml.available?display(ml.captures):'—','captures recensées, à vérifier avant prévision'],
-      ['JOURS DE DONNÉES',ml.available?String(ml.days.toLocaleString('fr-FR',{maximumFractionDigits:1})):'—','7 jours minimum nécessaires'],
-      ['FIABILITÉ DES PRÉVISIONS','—','pas encore mesurée'],
+      ['HORIZON CIBLÉ','30 min','estimation future, non disponible en V1'],
+      ['EXPÉRIENCE V1','Terminée','évaluation sur des données Vélib’ réelles'],
+      ['RÉSULTAT DU MODÈLE','Non validé','la méthode simple reste meilleure en erreur moyenne'],
+      ['PROCHAINE ÉTAPE','V2','amélioration séparée du modèle prédictif'],
     ],
   }[state.view];
   const nodes=document.querySelectorAll('.metric');
@@ -337,7 +336,7 @@ function updateNav() {
     reseau:['01 / 04','Le pouls du réseau.','Explorez les stations Vélib’, leur disponibilité observée et les bornes libres.','Disponibilité par station'],
     territoires:['02 / 04','Comparer les secteurs.','Comparez les vélos disponibles dans quatre zones du réseau.','Répartition géographique'],
     fiabilite:['03 / 04','Des données à vérifier.','Repérez les stations dont les chiffres sont disponibles ou manquants.','Stations et qualité des mesures'],
-    previsions:['04 / 04','Prévisions en préparation.','Les prévisions à 30 minutes seront affichées après vérification de leur fiabilité.','Prévisions / en attente'],
+    previsions:['04 / 04','Prévisions à améliorer.','Un premier modèle a été évalué, mais n’a pas suffisamment amélioré la méthode de référence. Aucune prévision n’est publiée.','Prévisions / non validées'],
   };
   const [index,title,description,maptitle]=views[state.view];
   document.querySelector('.index').textContent=index;
@@ -443,26 +442,18 @@ function renderInspector(){
     return;
   }
   if(state.view==='previsions'){
-    const gate=p5Gate(state.dataset);
-    const n=gate.available?gate.captures:null;
-    const days=gate.available?gate.days:null;
-    const coverage=gate.coverage;
-    const progress=(value,target)=>value===null?'—':pct(Math.min(1,value/target));
     box.innerHTML=`<div class="side-section forecast-readiness">
       <span class="station-kicker">PRÉVISIONS À 30 MINUTES</span>
       <span class="solid-tag">PRÉVISION NON DISPONIBLE</span>
-      <h3>Les prévisions sont en préparation</h3>
-      <p>Nous rassemblons les données nécessaires. Les captures comptées ici doivent encore être vérifiées avant de pouvoir proposer des prévisions fiables.</p>
-      <div class="p5-progress">
-        <div class="p5-progress-row"><span>Captures recensées</span><strong>${n===null?'Indisponible':`${display(n)} / 900`}</strong><small>${progress(n,900)} de l'objectif de captures</small><progress max="900" value="${n===null?0:Math.min(n,900)}"></progress></div>
-        <div class="p5-progress-row"><span>Jours de données</span><strong>${days===null?'Indisponible':`${days.toLocaleString('fr-FR',{maximumFractionDigits:2})} / 7 jours`}</strong><small>${progress(days,7)} de l'objectif de jours</small><progress max="7" value="${days===null?0:Math.min(days,7)}"></progress></div>
-        <div class="p5-progress-row"><span>Relevés disponibles</span><strong>${coverage===null?'Non mesurable':`${pct(coverage)} / 40 %`}</strong><small>Part des captures retrouvées parmi celles attendues</small><progress max="0.4" value="${coverage===null?0:Math.min(coverage,0.4)}"></progress></div>
-      </div>
-      <div class="detail-meta"><span>Historique</span><strong>${!gate.available?'Indisponible':gate.eligible?'Assez de captures, vérification en attente':'Encore des données à collecter'}</strong></div>
-      <div class="detail-meta"><span>Données pour les prévisions</span><strong>À vérifier</strong></div>
-      <div class="detail-meta"><span>Tests des prévisions</span><strong>Pas encore terminés</strong></div>
-      <p class="readiness-note">${gate.checkedAt?'Archives recensées le '+html(localTime(gate.checkedAt)):'Informations non disponibles. Actualisez les données.'} · Aucune prévision n'est affichée pour le moment. Nous vérifions d'abord qu'elle sera suffisamment fiable.</p>
+      <h3>Premier modèle évalué, non validé</h3>
+      <p>Notre première expérimentation a été entraînée et testée sur les données réelles du réseau. Elle n'a pas suffisamment amélioré la méthode de référence, qui conserve simplement le nombre de vélos observé.</p>
+      <div class="detail-meta"><span>Collecte P3</span><strong>7 jours de données atteints</strong></div>
+      <div class="detail-meta"><span>Évaluation P5</span><strong>Terminée sur des données réelles</strong></div>
+      <div class="detail-meta"><span>Résultat</span><strong>Modèle non validé</strong></div>
+      <div class="detail-meta"><span>Suite</span><strong>Amélioration V2 séparée</strong></div>
+      <p class="readiness-note">La méthode de persistance reste notre référence. Aucun chiffre de prévision n'est affiché et aucune estimation fictive n'est utilisée. Le modèle amélioré ne sera intégré qu'après de nouveaux tests concluants.</p>
     </div>`;
+
   }
 }
 function bindStationRows(){

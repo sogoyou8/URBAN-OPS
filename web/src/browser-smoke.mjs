@@ -251,8 +251,8 @@ try{
  await page.click('[data-view="reseau"]');
  assert.equal(await page.$eval('#inspector-content',e=>e.scrollTop),0);
  await page.click('[data-view="previsions"]');
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/27 \/ 900/);
- assert.match(await page.$eval('#inspector-content',e=>e.textContent),/À vérifier/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/Modèle non validé/);
+ assert.match(await page.$eval('#inspector-content',e=>e.textContent),/persistance/i);
  await page.click('[data-view="reseau"]');
  await page.click('[data-filter="empty"]');
  assert.equal(await page.$eval('[data-filter="empty"]',e=>e.getAttribute('aria-pressed')),'true');

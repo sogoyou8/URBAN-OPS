@@ -131,7 +131,28 @@ try{
   await page.click('[data-view="reseau"]');
   await page.setViewport({width:390,height:844,deviceScaleFactor:1});
   await new Promise(r=>setTimeout(r,200));
-  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+3), 'Mobile must not scroll horizontally');
+  for(const view of ['reseau','territoires','fiabilite','previsions']){
+    // Select each real-data screen at the same 390px width used by mobile visitors.
+    await page.$eval(`[data-view="${view}"]`,button=>button.click());
+    const mobile=await page.evaluate(()=>({
+      viewport:innerWidth,
+      scroll:document.documentElement.scrollWidth,
+      headline:document.querySelector('#headline-title')?.textContent,
+      stations:document.querySelector('#map-count')?.dataset.filtered,
+      inspector:document.querySelector('#inspector-content')?.textContent
+    }));
+    assert.ok(mobile.scroll<=mobile.viewport+3,
+      `Mobile ${view} must not scroll horizontally: ${mobile.scroll} > ${mobile.viewport}`);
+    assert.ok(mobile.headline && Number(mobile.stations)>1000,
+      `Mobile ${view} must show a real-data view`);
+    if(view==='previsions'){
+      assert.match(mobile.inspector,/Modèle non validé/);
+      assert.match(mobile.inspector,/persistance/i);
+      assert.doesNotMatch(mobile.inspector,/Tests des prévisions.*Pas encore terminés/s);
+    }
+    await page.screenshot({path:join(auditDir,`mobile-${view}-real-390x844.png`),fullPage:true});
+  }
+  await page.$eval('[data-view="reseau"]',button=>button.click());
   await page.screenshot({path:join(auditDir,'mobile-real-390x844.png'),fullPage:true});
   assert.deepEqual(errors,[],'No browser page exceptions');
   assert.ok(!blocked.some(u=>u.includes('cdn.jsdelivr.net/npm/maplibre-gl')),'No external JS CDN at runtime');
