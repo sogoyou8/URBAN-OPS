@@ -35,7 +35,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Install read-only P3 inventory and protocol checks
-        run: python -m pip install -e '.[test]'
+        run: python -m pip install -e '.[ml,test]'
       - name: Verify preregistered gates before reading any future labels
         run: python -m pytest -q tests/test_v24_protocol.py
       - name: Check future dates and archive names only — NO EVALUATION BEFORE NOV 4
