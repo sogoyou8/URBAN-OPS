@@ -1,6 +1,6 @@
 {
-  "latest_capture_utc": "2026-10-27T06:46:17+00:00",
-  "latest_asset_name": "capture-20261027T064617Z-885089b0.tar.gz",
+  "latest_capture_utc": "2026-10-27T13:11:15+00:00",
+  "latest_asset_name": "capture-20261027T131115Z-2f5a8e60.tar.gz",
   "source": "P3 GitHub Release filename inventory (build re-verifies SHA-256)",
   "trigger_mode": "scheduled-Git-push",
   "note": "Trigger metadata only. No station data committed, no validated ML prediction."
