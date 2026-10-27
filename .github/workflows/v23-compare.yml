@@ -1,0 +1,89 @@
+name: Urban Ops V2.3 — independent real-capture model comparison (NO DEPLOY)
+
+on:
+  push:
+    branches: [research/v2-3-model-comparison]
+    paths:
+      - "src/urban_ops/v23_candidates.py"
+      - "scripts/train_v23.py"
+      - "tests/test_v23_candidates.py"
+      - ".github/workflows/v23-compare.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urban-ops-v23-real-comparison
+  cancel-in-progress: false
+
+jobs:
+  safety-tests:
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-3-model-comparison'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install test and research-only ML dependencies
+        run: python -m pip install -e '.[ml,test]'
+      - name: Confirm chronological purges, no future information, output safety
+        run: python -m pytest -q tests/test_v23_candidates.py tests/test_v2_research.py tests/test_p5_forecasting.py
+
+  compare-real:
+    needs: safety-tests
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-3-model-comparison'
+    runs-on: ubuntu-latest
+    timeout-minutes: 100
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install the original collector and research-only ML dependencies
+        run: python -m pip install -e '.[ml]'
+      - name: Check original real P3 readiness thresholds
+        id: history
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/v23-p5-inventory.json
+      - name: Download real GitHub Release captures (no synthetic fixtures)
+        if: steps.history.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/v23-captures
+          python - <<'PY' > /tmp/v23-release-tags.txt
+          import json
+          for tag in json.load(open('data/v23-p5-inventory.json'))['release_tags']:
+              print(tag)
+          PY
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/v23-captures
+          done < /tmp/v23-release-tags.txt
+          test "$(find data/v23-captures -name 'capture-*.tar.gz' | wc -l)" -ge 900
+      - name: Replay the real Bronze/Silver/Gold history with SHA-256 verification
+        if: steps.history.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' archives < <(find data/v23-captures -name 'capture-*.tar.gz' -print0 | sort -z)
+          python -m scripts.replay_capture --db-url sqlite:///./data/v23-history.sqlite "${archives[@]}" > data/v23-replay.json
+      - name: Train ONLY research candidates and compare on historical validation
+        if: steps.history.outputs.ready == 'true'
+        run: |
+          python -m scripts.train_v23 --db-url sqlite:///./data/v23-history.sqlite \
+            --replay-evidence data/v23-replay.json --output data/v23-research
+      - name: Archive JSON metrics only — no model weights or station forecasts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-v23-validation-only-${{ github.run_id }}
+          path: |
+            data/v23-p5-inventory.json
+            data/v23-research/V2_3_RESEARCH_COMPARISON.json
+          if-no-files-found: warn
+          retention-days: 14
