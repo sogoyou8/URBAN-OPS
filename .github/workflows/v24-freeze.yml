@@ -1,0 +1,99 @@
+name: Urban Ops V2.4 — freeze research challenger (no deploy)
+on:
+  push:
+    branches: [research/v2-4-future-holdout]
+    paths:
+      - 'src/urban_ops/v24_protocol.py'
+      - 'scripts/v24_freeze.py'
+      - 'scripts/v24_evaluate.py'
+      - 'scripts/v24_inventory.py'
+      - 'tests/test_v24_protocol.py'
+      - '.github/workflows/v24-freeze.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urban-ops-v24-pre-holdout-freeze
+  cancel-in-progress: false
+
+jobs:
+  research-protocol-tests:
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-4-future-holdout'
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install ML and tests for offline research
+        run: python -m pip install -e '.[ml,test]'
+      - name: Verify fixed future dates, embargo, SHA and promotion guards
+        run: |
+          python -m pytest -q tests/test_v24_protocol.py tests/test_v231_stability.py tests/test_v23_candidates.py tests/test_v2_research.py tests/test_p5_forecasting.py
+
+  freeze-before-future-data:
+    needs: research-protocol-tests
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-4-future-holdout'
+    runs-on: ubuntu-latest
+    timeout-minutes: 105
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Ensure the model is frozen strictly before the untouched window
+        run: |
+          python - <<'PY'
+          from datetime import datetime,timezone
+          from urban_ops.v24_protocol import dt
+          # Python is installed in next step; source package available via PYTHONPATH.
+          assert datetime.now(timezone.utc) < dt('future_holdout_start_utc'), 'Too late to freeze for this test'
+          PY
+        env:
+          PYTHONPATH: src
+      - name: Install verified archive reader and fixed ML algorithm
+        run: python -m pip install -e '.[ml]'
+      - name: Inventory genuine P3 captures before cutoff
+        id: inventory
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/v24-freeze-inventory.json
+      - name: Download verified original Release archives (training only)
+        if: steps.inventory.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/v24-archives
+          python - <<'PY' > /tmp/v24-training-release-tags.txt
+          import json
+          for tag in json.load(open('data/v24-freeze-inventory.json'))['release_tags']:
+              print(tag)
+          PY
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/v24-archives
+          done < /tmp/v24-training-release-tags.txt
+          test "$(find data/v24-archives -name 'capture-*.tar.gz' | wc -l)" -ge 900
+      - name: Replay P3 real archive hashes into research-only database
+        if: steps.inventory.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' archives < <(find data/v24-archives -name 'capture-*.tar.gz' -print0 | sort -z)
+          python -m scripts.replay_capture --db-url sqlite:///./data/v24-training.sqlite "${archives[@]}" > data/v24-training-replay.json
+      - name: Freeze fixed challenger with pre-holdout labels ONLY
+        if: steps.inventory.outputs.ready == 'true'
+        run: |
+          python -m scripts.v24_freeze --db-url sqlite:///./data/v24-training.sqlite \
+            --replay-evidence data/v24-training-replay.json --output data/v24-frozen
+      - name: Save preregistered research model and SHA manifest, NOT forecasts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-v24-pre-frozen-${{ github.run_id }}
+          path: data/v24-frozen/
+          if-no-files-found: error
+          retention-days: 30
