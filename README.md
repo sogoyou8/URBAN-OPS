@@ -1,8 +1,10 @@
 # URBAN OPS — Observatoire des archives Vélib’ Métropole
 
-**Statut au 22 octobre 2026 : observatoire P6 validé en CI, publication GitHub Pages non encore activée, prévisions P5 non validées.** Le collecteur P3 GitHub Actions fonctionne de façon récurrente en *best effort* et archive les captures réelles dans des Releases. Le projet Power BI P4 est généré automatiquement mais son rendu dans Power BI Desktop Windows reste à vérifier.
+**V1 publiée et figée fonctionnellement le 27 octobre 2026 : [ouvrir Urban Ops](https://urban-ops.vercel.app/).** Le cockpit P6 et les quatre pages Power BI P4 ont été vérifiés. Le collecteur P3 archive des captures réelles en *best effort* ; les instantanés publics sont reconstruits sur Vercel jusqu'à quatre fois par jour si une capture plus récente est disponible.
 
-**Clôture V1 et mise en ligne :** [voir les étapes réelles, les critères de gel et la procédure GitHub Pages](docs/URBAN_OPS_V1_RELEASE.md).
+**P5 :** premier entraînement et test chronologique terminés. La méthode de persistance fait mieux en MAE sur le test final (1,1549 vélo contre 1,2203 pour le candidat ML). **Aucune prévision P5 n'est publiée.** Son amélioration appartient à V2 séparément.
+
+**Gel V1 et fonctionnement public :** [décision finale et protocole de mise à jour](docs/V1_RELEASE_FREEZE_20261027.md). L'ancien [plan C3 GitHub Pages](docs/URBAN_OPS_V1_RELEASE.md) est conservé pour l'historique, mais **GitHub Pages n'est pas notre hébergement de production**.
 
 Ce dépôt est indépendant de FPT, Commerce 360 et France Électricité 2024. Les sections historiques ci-dessous décrivent les jalons de développement et peuvent contenir des constats datant du démarrage du projet.
 
