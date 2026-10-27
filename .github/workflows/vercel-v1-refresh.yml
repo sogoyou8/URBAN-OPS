@@ -61,7 +61,7 @@ jobs:
       - name: Trigger linked Vercel production deployment with a metadata-only Git commit
         run: |
           set -euo pipefail
-          if git diff --quiet -- .github/urban-ops-vercel-refresh.json && [ -f .github/urban-ops-vercel-refresh.json ]; then
+          if [ -z "$(git status --porcelain -- .github/urban-ops-vercel-refresh.json)" ]; then
             echo "No new snapshot; no push or deployment"
             exit 0
           fi
