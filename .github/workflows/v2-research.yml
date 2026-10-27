@@ -1,0 +1,74 @@
+name: V2 research — real error diagnostics and past-only features (no deploy)
+on:
+  push:
+    branches: [research/v2-1-v2-2-data-diagnostics]
+    paths:
+      - 'src/urban_ops/v2_research.py'
+      - 'scripts/v2_diagnose.py'
+      - 'tests/test_v2_research.py'
+      - '.github/workflows/v2-research.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: urban-ops-v2-research
+  cancel-in-progress: false
+
+jobs:
+  diagnose-real-archives:
+    if: github.repository == 'sogoyou8/URBAN-OPS' && github.ref == 'refs/heads/research/v2-1-v2-2-data-diagnostics'
+    runs-on: ubuntu-latest
+    timeout-minutes: 85
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install P3/P5 and experimental-only unit test tools
+        run: python -m pip install -e '.[ml,test]'
+      - name: Verify historical features and anti-leakage contracts
+        run: python -m pytest -q tests/test_v2_research.py tests/test_p5_forecasting.py
+      - name: Inventory real P3 archives — no simulated data
+        id: history
+        run: python -m scripts.p5_inventory --repo "$GH_REPO" --output data/v2-p5-inventory.json
+      - name: Download checked source archives from verified GitHub Releases
+        if: steps.history.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p data/v2-captures
+          python - <<'PY' > /tmp/v2-release-tags.txt
+          import json
+          for tag in json.load(open('data/v2-p5-inventory.json'))['release_tags']:
+              print(tag)
+          PY
+          while IFS= read -r tag; do
+            gh release download "$tag" -R "$GH_REPO" --pattern 'capture-*.tar.gz' --dir data/v2-captures
+          done < /tmp/v2-release-tags.txt
+          test "$(find data/v2-captures -name 'capture-*.tar.gz' | wc -l)" -ge 900
+      - name: Restore only real verified P3 archives (SHA-256)
+        if: steps.history.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -d '' archives < <(find data/v2-captures -name 'capture-*.tar.gz' -print0 | sort -z)
+          python -m scripts.replay_capture --db-url sqlite:///./data/v2-history.sqlite "${archives[@]}" > data/v2-replay.json
+      - name: Diagnose incumbent errors and audit extra candidate features
+        if: steps.history.outputs.ready == 'true'
+        run: |
+          python -m scripts.v2_diagnose --db-url sqlite:///./data/v2-history.sqlite \
+            --replay-evidence data/v2-replay.json --output data/v2-diagnostics
+      - name: Publish diagnostics ONLY — never model weights or station forecasts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: urban-ops-v2-1-v2-2-research-${{ github.run_id }}
+          path: |
+            data/v2-p5-inventory.json
+            data/v2-diagnostics/V2_1_V2_2_DIAGNOSTICS.json
+          if-no-files-found: warn
+          retention-days: 14
