@@ -136,14 +136,14 @@ def select_gated_rule(calibration: Sequence[Example],
     )
 
 
-def _change_probabilities(classifier, examples: Sequence[Example]) -> list[float]:
+def _change_probabilities(classifier, projected_values: Sequence) -> list[float]:
     """Probability of change, not probability of finding a bicycle."""
     if classifier is None:
-        return [0.0] * len(examples)
+        return [0.0] * len(projected_values)
     classes = list(classifier.classes_)
     if classes != [0, 1]:
         raise ValueError("Unexpected classifier label encoding")
-    return [float(row[1]) for row in classifier.predict_proba([x.values for x in examples])]
+    return [float(row[1]) for row in classifier.predict_proba(projected_values)]
 
 
 def compare_stability_methods(train: list[Example], validation: list[Example],
@@ -173,9 +173,29 @@ def compare_stability_methods(train: list[Example], validation: list[Example],
                     and math.isfinite(ex.target_bikes)):
                 raise ValueError("Missing qualified observation/label in " + label)
 
+    # Prevent scikit-learn's histogram binning from receiving a column that
+    # contains NO observations in the training period. Do not fill with zeros,
+    # and never decide columns using calibration/validation/future data.
+    used_columns = [
+        index for index in range(len(FEATURE_NAMES_V2))
+        if any(math.isfinite(row.values[index]) for row in core)
+    ]
+    if not used_columns:
+        raise ValueError("No observed past-only features in training core")
+    excluded_names = [
+        feature for index, feature in enumerate(FEATURE_NAMES_V2)
+        if index not in used_columns
+    ]
+
+    def project(examples):
+        return [[row.values[index] for index in used_columns] for row in examples]
+
+    x_core = project(core)
+    x_calibration = project(calibration)
+    x_validation = project(validation)
     residual = HistGradientBoostingRegressor(**MODEL_PARAMETERS)
     residual.fit(
-        [x.values for x in core],
+        x_core,
         [float(x.target_bikes - x.values[0]) for x in core],
     )
     stable_count = sum(x.target_bikes == x.values[0] for x in core)
@@ -187,12 +207,12 @@ def compare_stability_methods(train: list[Example], validation: list[Example],
             learning_rate=0.06, l2_regularization=8.0,
             early_stopping=False, random_state=43,
         )
-        classifier.fit([x.values for x in core], change_targets)
+        classifier.fit(x_core, change_targets)
 
-    calibration_residuals = residual.predict([x.values for x in calibration])
-    validation_residuals = residual.predict([x.values for x in validation])
-    calibration_probs = _change_probabilities(classifier, calibration)
-    validation_probs = _change_probabilities(classifier, validation)
+    calibration_residuals = residual.predict(x_calibration)
+    validation_residuals = residual.predict(x_validation)
+    calibration_probs = _change_probabilities(classifier, x_calibration)
+    validation_probs = _change_probabilities(classifier, x_validation)
 
     trend_rule = select_trend_rule(calibration)
     gated_rule = select_gated_rule(calibration, calibration_residuals, calibration_probs)
@@ -235,6 +255,9 @@ def compare_stability_methods(train: list[Example], validation: list[Example],
         "historical_validation_rows": len(validation),
         "fit_time_stable_ratio": round(stable_count / len(core), 4),
         "change_classifier_fitted": classifier is not None,
+        "feature_projection_selected_only_on_train_core": True,
+        "features_used_count": len(used_columns),
+        "all_missing_training_features_excluded": excluded_names,
         "rule_selection": {
             "trend": trend_rule,
             "change_gate": gated_rule,
