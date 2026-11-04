@@ -23,6 +23,7 @@ sur Vercel**. La PR #40 reste un brouillon.
 - Modèle épinglé : GitHub Actions #40495787979.
 - Référence principale : la persistance du nombre de vélos.
 - Aucun candidat V2.3.1 n'a passé la validation historique.
+- 4 novembre 2026 (après l'embargo) : déclenchement volontaire du test indépendant, sans modifier ni le modèle gelé, ni le protocole, ni la V1.
 
 **Intervention manuelle future nécessaire :** déclencher le workflow
 sur cette branche ou modifier une seule ligne de ce fichier après la date.
